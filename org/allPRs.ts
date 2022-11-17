@@ -1,4 +1,4 @@
-import {warn, danger} from 'danger'
+import {warn, danger} from "danger"
 
 export const prSize = async () => {  
     // Warn when there is a big PR
@@ -14,4 +14,10 @@ export const internalLink = async () => {
             warn("Please, don't forget to add a link to the internal task");
         }
     }
+}
+
+// Default run
+export default async () => {
+    await prSize()
+    await internalLink()
 }
