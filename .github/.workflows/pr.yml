@@ -1,0 +1,16 @@
+name: PR Checks
+on:
+  push:
+    branches: [ develop ]
+  pull_request:
+    branches: [ develop ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install modules
+      run: yarn install --frozen-lockfile
+    - name: Run tests
+      run: yarn jest --ci --runInBand --reporters=default --reporters=jest-junit
