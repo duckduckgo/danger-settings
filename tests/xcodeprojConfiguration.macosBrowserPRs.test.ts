@@ -17,7 +17,9 @@ beforeEach(() => {
         github: {
             pr: {
                 additions: 200,
-                deletions: 10,
+                deletions: 10
+            },
+            thisPR: {
                 repo: "macos-browser"
             }
         },
@@ -84,7 +86,7 @@ describe("Xcode project file configuration checks", () => {
     })
 
     it("does not fail with added cofiguration in non-macos app repo", async () => {
-        dm.danger.github.pr.repo = "iOS"
+        dm.danger.github.thisPR.repo = "iOS"
         dm.addedLines = `
         +				GCC_WARN_64_TO_32_BIT_CONVERSION = YES_ERROR;
         `

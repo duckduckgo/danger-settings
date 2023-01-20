@@ -17,7 +17,7 @@ export const internalLink = async () => {
 }
 
 export const xcodeprojConfiguration = async () => {
-    if (danger.github.pr.repo == "macos-browser") {
+    if (danger.github.thisPR.repo == "macos-browser") {
         const projectFile = "DuckDuckGo.xcodeproj/project.pbxproj";
         if (danger.git.modified_files.includes(projectFile)) {
             let diff = await danger.git.diffForFile(projectFile);
