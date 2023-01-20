@@ -21,7 +21,14 @@ export const xcodeprojConfiguration = async () => {
     if (danger.git.modified_files.includes(projectFile)) {
         let diff = await danger.git.diffForFile(projectFile);
         let addedLines = diff.added.split(/\n/);
-        if (addedLines.find(value => /^\+\t+[A-Z_0-9]* = .*;$/i.test(value))) {
+        // The regex is equal to:
+        // * plus sign
+        // * 1 or more tabulation keys
+        // * an identifier (key) consisting of capital letters, underscores and digits,
+        // * a space and an equality sign
+        // * arbitrary number of any characters (the value can be empty)
+        // * a semicolon
+        if (addedLines.find(value => /^\+\t+[A-Z_0-9]* =.*;$/i.test(value))) {
             fail("No configuration is allowed inside Xcode project file - use xcconfig files instead.");
         }
     }
