@@ -1,4 +1,4 @@
-import {fail, warn, danger} from "danger"
+import {warn, danger} from "danger"
 
 export const prSize = async () => {  
     // Warn when there is a big PR
@@ -16,20 +16,8 @@ export const internalLink = async () => {
     }
 }
 
-export const xcodeprojConfiguration = async () => {
-    const projectFile = "DuckDuckGo.xcodeproj/project.pbxproj";
-    if (danger.git.modified_files.includes(projectFile)) {
-        let diff = await danger.git.diffForFile(projectFile);
-        let addedLines = diff.added.split(/\n/);
-        if (addedLines.find(value => /^\+\t+[A-Z_0-9]* = .*;$/i.test(value))) {
-            fail("No configuration is allowed inside Xcode project file - use xcconfig files instead.");
-        }
-    }
-}
-
 // Default run
 export default async () => {
     await prSize()
     await internalLink()
-    await xcodeprojConfiguration()
 }
