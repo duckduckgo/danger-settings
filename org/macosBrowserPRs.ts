@@ -1,4 +1,4 @@
-import {prSize, internalLink} from "allPRs"
+import {prSize, internalLink} from "./allPRs"
 import {fail, danger} from "danger"
 
 export const xcodeprojConfiguration = async () => {
