@@ -55,10 +55,10 @@ describe("Xcode project file configuration checks", () => {
 
     it("does not fail with added source file", async () => {
         dm.addedLines = `
-        +		372C27BE297AD5C200C758EB /* Test.swift in Sources */ = {isa = PBXBuildFile; fileRef = 372C27BD297AD5C200C758EB /* Test.swift */; };
-        +		372C27BD297AD5C200C758EB /* Test.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Test.swift; sourceTree = "<group>"; };
-        +				372C27BD297AD5C200C758EB /* Test.swift */,
-        +				372C27BE297AD5C200C758EB /* Test.swift in Sources */,
++		372C27BE297AD5C200C758EB /* Test.swift in Sources */ = {isa = PBXBuildFile; fileRef = 372C27BD297AD5C200C758EB /* Test.swift */; };
++		372C27BD297AD5C200C758EB /* Test.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Test.swift; sourceTree = "<group>"; };
++				372C27BD297AD5C200C758EB /* Test.swift */,
++				372C27BE297AD5C200C758EB /* Test.swift in Sources */,
         `
 
         await xcodeprojConfiguration()
@@ -68,7 +68,7 @@ describe("Xcode project file configuration checks", () => {
 
     it("fails with added configuration", async () => {
         dm.addedLines = `
-        +				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
++				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
         `
 
         await xcodeprojConfiguration()
@@ -78,7 +78,7 @@ describe("Xcode project file configuration checks", () => {
 
     it("fails with added configuration with empty value", async () => {
         dm.addedLines = `
-        +				CODE_SIGN_IDENTITY = ;
++				CODE_SIGN_IDENTITY = ;
         `
 
         await xcodeprojConfiguration()
@@ -88,7 +88,7 @@ describe("Xcode project file configuration checks", () => {
 
     it("fails with added configuration with key containing digits", async () => {
         dm.addedLines = `
-        +				GCC_WARN_64_TO_32_BIT_CONVERSION = YES_ERROR;
++				GCC_WARN_64_TO_32_BIT_CONVERSION = YES_ERROR;
         `
 
         await xcodeprojConfiguration()
@@ -99,7 +99,7 @@ describe("Xcode project file configuration checks", () => {
     it("does not fail with added cofiguration in non-macos app repo", async () => {
         dm.danger.github.thisPR.repo = "iOS"
         dm.addedLines = `
-        +				GCC_WARN_64_TO_32_BIT_CONVERSION = YES_ERROR;
++				GCC_WARN_64_TO_32_BIT_CONVERSION = YES_ERROR;
         `
 
         await xcodeprojConfiguration()
