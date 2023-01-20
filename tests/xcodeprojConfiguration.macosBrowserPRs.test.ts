@@ -2,7 +2,7 @@ jest.mock("danger", () => jest.fn())
 import danger from 'danger'
 const dm = danger as any;
 
-import { xcodeprojConfiguration } from '../org/macosBrowserPRs'
+import { xcodeprojConfiguration } from '../org/allPRs'
 
 beforeEach(() => {
     dm.addedLines = ""
@@ -17,13 +17,14 @@ beforeEach(() => {
         github: {
             pr: {
                 additions: 200,
-                deletions: 10  
+                deletions: 10,
+                repo: "macos-browser"
             }
         },
     }
 })
 
-describe("PR diff size checks", () => {
+describe("Xcode project file configuration checks", () => {
     it("does not fail with no changes to project file", async () => {
         dm.danger.git.diffForFile = async (_filename) => {}
 
@@ -80,6 +81,17 @@ describe("PR diff size checks", () => {
         await xcodeprojConfiguration()
         
         expect(dm.fail).toHaveBeenCalledWith("No configuration is allowed inside Xcode project file - use xcconfig files instead.")
+    })
+
+    it("does not fail with added cofiguration in non-macos app repo", async () => {
+        dm.danger.github.pr.repo = "iOS"
+        dm.addedLines = `
+        +				GCC_WARN_64_TO_32_BIT_CONVERSION = YES_ERROR;
+        `
+
+        await xcodeprojConfiguration()
+
+        expect(dm.fail).not.toHaveBeenCalled()
     })
 })
 
