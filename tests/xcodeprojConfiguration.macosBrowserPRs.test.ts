@@ -13,6 +13,9 @@ beforeEach(() => {
             diffForFile: async (_filename) => {
                 return { added: dm.addedLines }
             },
+            modified_files: [
+                "DuckDuckGo.xcodeproj/project.pbxproj"
+            ]
         },
         github: {
             pr: {
@@ -28,6 +31,14 @@ beforeEach(() => {
 
 describe("Xcode project file configuration checks", () => {
     it("does not fail with no changes to project file", async () => {
+        dm.danger.git.modified_files = []
+
+        await xcodeprojConfiguration()
+
+        expect(dm.fail).not.toHaveBeenCalled()
+    })
+
+    it("does not fail with no diff in project file", async () => {
         dm.danger.git.diffForFile = async (_filename) => {}
 
         await xcodeprojConfiguration()
