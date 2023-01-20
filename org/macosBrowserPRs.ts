@@ -1,5 +1,5 @@
-import {prSize, internalLink} from "./allPRs"
 import {fail, danger} from "danger"
+import allPRs from "./allPRs"
 
 export const xcodeprojConfiguration = async () => {
     const projectFile = "DuckDuckGo.xcodeproj/project.pbxproj";
@@ -13,7 +13,6 @@ export const xcodeprojConfiguration = async () => {
 }
 
 export default async () => {
-    await prSize()
-    await internalLink()
+    await allPRs()
     await xcodeprojConfiguration()
 }
