@@ -47,7 +47,6 @@ describe("Xcode project file configuration checks", () => {
     })
 
     it("does not fail with no additions", async () => {
-
         await xcodeprojConfiguration()
 
         expect(dm.fail).not.toHaveBeenCalled()
