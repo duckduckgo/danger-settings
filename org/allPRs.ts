@@ -29,7 +29,7 @@ export const xcodeprojConfiguration = async () => {
             // * a space and an equality sign
             // * arbitrary number of any characters (the value can be empty)
             // * a semicolon
-            if (addedLines?.find(value => /^\+\t+[A-Z_0-9]* =.*;$/i.test(value))) {
+            if (addedLines?.find(value => /^\+\t+[A-Z_0-9]* =.*;$/.test(value))) {
                 fail("No configuration is allowed inside Xcode project file - use xcconfig files instead.");
             }
         }
