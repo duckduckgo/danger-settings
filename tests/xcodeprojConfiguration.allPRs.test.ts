@@ -65,6 +65,17 @@ describe("Xcode project file configuration checks", () => {
         expect(dm.fail).not.toHaveBeenCalled()
     })
 
+    it("does not fail with submodule changes", async () => {
+        dm.addedLines = `
++								branch = "test-branch";
++								kind = branch;
+        `
+
+        await xcodeprojConfiguration()
+
+        expect(dm.fail).not.toHaveBeenCalled()
+    })
+
     it("fails with added configuration", async () => {
         dm.addedLines = `
 +				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
