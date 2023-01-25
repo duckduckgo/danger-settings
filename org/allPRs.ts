@@ -11,7 +11,7 @@ export const internalLink = async () => {
     // Warn when link to internal task is missing
     for (let bodyLine of danger.github.pr.body.toLowerCase().split(/\n/)) {
         if (bodyLine.includes("task/issue url:") && (!bodyLine.includes("app.asana.com"))) {
-            warn("Please, don't forget to add a link to the internal task");
+            fail("Please, don't forget to add a link to the internal task");
         }
     }
 }
