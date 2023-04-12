@@ -36,6 +36,14 @@ export const xcodeprojConfiguration = async () => {
     }
 }
 
+export const licensedFonts = async () => {
+    // Fail if licensed fonts are committed
+    const modifiedFiles = danger.git.modified_files; 
+    if (modifiedFiles.some(path => path.match(/fonts\/licensed\/.*\.otf/))) {
+        fail("Licensed fonts shouldn't be commited to this repository.")
+    }
+}
+
 // Default run
 export default async () => {
     await prSize()
