@@ -44,9 +44,21 @@ export const licensedFonts = async () => {
     }
 }
 
+export const newColors = async () => {
+    // Fail if new colors are added to the app (DesignResourcesKit)
+    if (danger.github.thisPR.repo == "iOS") {
+        const createdFiles = danger.git.created_files; 
+        if (createdFiles.some(path => path.match(/Assets.xcassets\/.*\.colorset/))) {
+            fail("DesignResourcesKit: No new colors should be added to this app.")
+        }
+    }
+}
+
 // Default run
 export default async () => {
     await prSize()
     await internalLink()
     await xcodeprojConfiguration()
+    await licensedFonts()
+    await newColors()
 }
