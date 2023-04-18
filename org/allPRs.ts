@@ -36,9 +36,29 @@ export const xcodeprojConfiguration = async () => {
     }
 }
 
+export const licensedFonts = async () => {
+    // Fail if licensed fonts are committed
+    const modifiedFiles = danger.git.modified_files; 
+    if (modifiedFiles.some(path => path.match(/fonts\/licensed\/.*\.otf/))) {
+        fail("Licensed fonts shouldn't be commited to this repository.")
+    }
+}
+
+export const newColors = async () => {
+    // Fail if new colors are added to the app (DesignResourcesKit)
+    if (danger.github.thisPR.repo == "iOS") {
+        const createdFiles = danger.git.created_files; 
+        if (createdFiles.some(path => path.match(/Assets.xcassets\/.*\.colorset/))) {
+            fail("DesignResourcesKit: No new colors should be added to this app.")
+        }
+    }
+}
+
 // Default run
 export default async () => {
     await prSize()
     await internalLink()
     await xcodeprojConfiguration()
+    await licensedFonts()
+    await newColors()
 }
