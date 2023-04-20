@@ -5,7 +5,8 @@
             "es2018",
             "dom"
         ],
-        "target": "es2018"
+        "target": "es2018",
+        "module": "CommonJS"
     },
     "exclude": [
         "node_modules"
