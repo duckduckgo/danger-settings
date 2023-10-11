@@ -54,6 +54,60 @@ export const newColors = async () => {
     }
 }
 
+async function extractUrl(filePath: string, regex: string, matchGroup: any): Promise<string> {
+    const fileContents = await danger.github.utils.fileContents(filePath);
+    var fileMatch = fileContents.match(regex);
+    var extractedUrl = '';
+    if (Array.isArray(fileMatch) && fileMatch.length > matchGroup) {
+        extractedUrl = fileMatch[matchGroup];
+    }
+
+    return extractedUrl;
+}
+
+export const trackerBlockingMismatch = async() => {
+    // Fail if Tracker Blocking config URL is different between code and script
+    var appConfigUrlProviderFilePath = ''; 
+    var updateEmbeddedFilePath = ''; 
+    var configUrlProviderRegex = '';
+    var updateEmbeddedRegex = '';
+
+    // Configure
+    const repo = danger.github.thisPR.repo;
+    const modifiedFiles = danger.git.modified_files;
+
+    switch (repo) {
+        case "iOS":
+            appConfigUrlProviderFilePath = 'Core/AppURLs.swift';
+            updateEmbeddedFilePath = 'scripts/update_embedded.sh';
+
+            configUrlProviderRegex = 'static let trackerDataSet = URL.*string:.*staticBase.*trackerblocking\/(.*)\".*';
+            updateEmbeddedRegex = 'performUpdate \'https://staticcdn.duckduckgo.com/trackerblocking/(.*)\' \".*';
+            break;
+        case "macos-browser":
+            appConfigUrlProviderFilePath = 'DuckDuckGo/AppDelegate/AppConfigurationURLProvider.swift';
+            updateEmbeddedFilePath = 'scripts/update_embedded.sh';
+
+            configUrlProviderRegex = 'case \.privacyConfiguration: return URL.string: \"(.*)\".*';
+            updateEmbeddedRegex = 'CONFIG_URL=\"(.*)\"';
+            break;
+        default:
+            return;
+    } 
+    
+    const trackerBlockingFiles = [appConfigUrlProviderFilePath, updateEmbeddedFilePath];
+    
+    // Run tests
+    if (modifiedFiles.some(path => trackerBlockingFiles.includes(path))) {
+        var configUrlProviderContentsUrl = await extractUrl(appConfigUrlProviderFilePath, configUrlProviderRegex, 1);
+        var updateEmbeddedContentsUrl = await extractUrl(updateEmbeddedFilePath, updateEmbeddedRegex, 1);;
+
+        if (configUrlProviderContentsUrl != updateEmbeddedContentsUrl) {
+            fail(`Content Tracker URL mismatch. Please check ${appConfigUrlProviderFilePath} and ${updateEmbeddedFilePath}`)
+        }
+    }
+}
+
 // Default run
 export default async () => {
     await prSize()
@@ -61,4 +115,5 @@ export default async () => {
     await xcodeprojConfiguration()
     await licensedFonts()
     await newColors()
+    await trackerBlockingMismatch()
 }
