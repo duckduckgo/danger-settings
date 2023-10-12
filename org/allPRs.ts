@@ -96,7 +96,12 @@ async function trackerBlockingMismatch(repository: string, modifiedFiles: any) {
             updateEmbeddedRegex = 'performUpdate \'https://staticcdn.duckduckgo.com/trackerblocking/(.*)\' \".*';
             break;
         case "macos-browser":
-            return;
+            tdsUrlProviderFilePath = 'DuckDuckGo/AppDelegate/AppConfigurationURLProvider.swift';
+            updateEmbeddedFilePath = 'scripts/update_embedded.sh';
+
+            tdsUrlProviderRegex = 'case \.trackerDataSet: return URL.string: \"(.*)\".*';
+            updateEmbeddedRegex = 'TDS_URL=\"(.*)\"';
+            break;
         default:
             return;
     } 
@@ -117,7 +122,12 @@ async function privacyConfigMismatch (repository: string, modifiedFiles: any) {
     // Configure
     switch (repository) {
         case "iOS":
-            return;
+            appConfigUrlProviderFilePath = 'Core/AppURLs.swift';
+            updateEmbeddedFilePath = 'scripts/update_embedded.sh';
+
+            configUrlProviderRegex = 'static let privacyConfig = URL.*string:.*staticBase.*trackerblocking\/config\/(.*)\".*';
+            updateEmbeddedRegex = 'performUpdate \'https://staticcdn.duckduckgo.com/trackerblocking/config/(.*)\' \".*';
+            break;
         case "macos-browser":
             appConfigUrlProviderFilePath = 'DuckDuckGo/AppDelegate/AppConfigurationURLProvider.swift';
             updateEmbeddedFilePath = 'scripts/update_embedded.sh';
@@ -128,7 +138,7 @@ async function privacyConfigMismatch (repository: string, modifiedFiles: any) {
         default:
             return;
     } 
-
+    
     const res = await checkForMismatch(modifiedFiles, appConfigUrlProviderFilePath, configUrlProviderRegex, updateEmbeddedFilePath, updateEmbeddedRegex);
     if (res) {
         fail(`Privacy Config URL mismatch. Please check ${appConfigUrlProviderFilePath} and ${updateEmbeddedFilePath}`)
