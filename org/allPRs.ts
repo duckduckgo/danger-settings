@@ -54,6 +54,105 @@ export const newColors = async () => {
     }
 }
 
+async function extractUrl(filePath: string, regex: string, matchGroup: any): Promise<string> {
+    const fileContents = await danger.github.utils.fileContents(filePath);
+    var fileMatch = fileContents.match(regex);
+    var extractedUrl = '';
+    if (Array.isArray(fileMatch) && fileMatch.length > matchGroup) {
+        extractedUrl = fileMatch[matchGroup];
+    }
+
+    return extractedUrl;
+}
+
+async function checkForMismatch(modifiedFiles: any, sourceCodeUrlFilePath: string, sourceCodeUrlRegex: string, scriptFilePath: string, scriptRegex: string) {
+    const embeddedUrlFiles = [sourceCodeUrlFilePath, scriptFilePath];
+    
+    // Run tests
+    if (modifiedFiles.some(path => embeddedUrlFiles.includes(path))) {
+        var sourceCodeFileContentsUrl = await extractUrl(sourceCodeUrlFilePath, sourceCodeUrlRegex, 1);
+        var scriptContentsUrl = await extractUrl(scriptFilePath, scriptRegex, 1);
+
+        return (sourceCodeFileContentsUrl != scriptContentsUrl);
+    }
+
+    return false;
+}
+
+async function trackerBlockingMismatch(repository: string, modifiedFiles: any) {
+    // Fail if Tracker Blocking config URL is different between code and script
+    var tdsUrlProviderFilePath = ''; 
+    var updateEmbeddedFilePath = ''; 
+    var tdsUrlProviderRegex = '';
+    var updateEmbeddedRegex = '';
+
+    // Configure
+    switch (repository) {
+        case "iOS":
+            tdsUrlProviderFilePath = 'Core/AppURLs.swift';
+            updateEmbeddedFilePath = 'scripts/update_embedded.sh';
+
+            tdsUrlProviderRegex = 'static let trackerDataSet = URL.*string:.*staticBase.*trackerblocking\/(.*)\".*';
+            updateEmbeddedRegex = 'performUpdate \'https://staticcdn.duckduckgo.com/trackerblocking/(.*)\' \".*';
+            break;
+        case "macos-browser":
+            tdsUrlProviderFilePath = 'DuckDuckGo/AppDelegate/AppConfigurationURLProvider.swift';
+            updateEmbeddedFilePath = 'scripts/update_embedded.sh';
+
+            tdsUrlProviderRegex = 'case \.trackerDataSet: return URL.string: \"(.*)\".*';
+            updateEmbeddedRegex = 'TDS_URL=\"(.*)\"';
+            break;
+        default:
+            return;
+    } 
+
+    const res = await checkForMismatch(modifiedFiles, tdsUrlProviderFilePath, tdsUrlProviderRegex, updateEmbeddedFilePath, updateEmbeddedRegex);
+    if (res) {
+        fail(`Content Tracker URL mismatch. Please check ${tdsUrlProviderFilePath} and ${updateEmbeddedFilePath}`)
+    }
+}
+
+async function privacyConfigMismatch (repository: string, modifiedFiles: any) {
+    // Fail if Tracker Blocking config URL is different between code and script
+    var appConfigUrlProviderFilePath = ''; 
+    var updateEmbeddedFilePath = ''; 
+    var configUrlProviderRegex = '';
+    var updateEmbeddedRegex = '';
+
+    // Configure
+    switch (repository) {
+        case "iOS":
+            appConfigUrlProviderFilePath = 'Core/AppURLs.swift';
+            updateEmbeddedFilePath = 'scripts/update_embedded.sh';
+
+            configUrlProviderRegex = 'static let privacyConfig = URL.*string:.*staticBase.*trackerblocking\/config\/(.*)\".*';
+            updateEmbeddedRegex = 'performUpdate \'https://staticcdn.duckduckgo.com/trackerblocking/config/(.*)\' \".*';
+            break;
+        case "macos-browser":
+            appConfigUrlProviderFilePath = 'DuckDuckGo/AppDelegate/AppConfigurationURLProvider.swift';
+            updateEmbeddedFilePath = 'scripts/update_embedded.sh';
+
+            configUrlProviderRegex = 'case \.privacyConfiguration: return URL.string: \"(.*)\".*';
+            updateEmbeddedRegex = 'CONFIG_URL=\"(.*)\"';
+            break;
+        default:
+            return;
+    } 
+    
+    const res = await checkForMismatch(modifiedFiles, appConfigUrlProviderFilePath, configUrlProviderRegex, updateEmbeddedFilePath, updateEmbeddedRegex);
+    if (res) {
+        fail(`Privacy Config URL mismatch. Please check ${appConfigUrlProviderFilePath} and ${updateEmbeddedFilePath}`)
+    }
+}
+
+export const embeddedFilesURLMismatch = async() => {
+    const repo = danger.github.thisPR.repo;
+    const modifiedFiles = danger.git.modified_files;
+
+    await trackerBlockingMismatch(repo, modifiedFiles)
+    await privacyConfigMismatch(repo, modifiedFiles)
+}
+
 // Default run
 export default async () => {
     await prSize()
@@ -61,4 +160,5 @@ export default async () => {
     await xcodeprojConfiguration()
     await licensedFonts()
     await newColors()
+    await embeddedFilesURLMismatch()
 }
