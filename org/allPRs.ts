@@ -1,4 +1,5 @@
 import {fail, warn, danger} from "danger"
+import Asana from "asana"
 
 export const prSize = async () => {  
     // Warn when there is a big PR
@@ -8,10 +9,31 @@ export const prSize = async () => {
 }
 
 export const internalLink = async () => {
+    const regex = /https:\/\/app.asana.com\/[0-9]\/[0-9]*\/([0-9]*)/
+
     // Warn when link to internal task is missing
     for (let bodyLine of danger.github.pr.body.toLowerCase().split(/\n/)) {
-        if (bodyLine.includes("task/issue url:") && (!bodyLine.includes("app.asana.com"))) {
-            fail("Please, don't forget to add a link to the internal task");
+        if (bodyLine.includes("task/issue url:")) {
+
+            let match = bodyLine.match(regex);
+            if (!match || match.length < 2) {
+                fail("Please, don't forget to add a link to the internal task");
+            }
+
+            let taskGID = match[1];
+
+            if (process.env.ASANA_ACCESS_TOKEN && process.env.ASANA_PROJECT_ID && process.env.ASANA_PROJECT_NAME) {
+                let client = Asana.ApiClient.instance;
+                let token = client.authentications['token'];
+                token.accessToken = process.env.ASANA_ACCESS_TOKEN;
+
+                let tasksApiInstance = new Asana.TasksApi();
+                let result = await tasksApiInstance.getTask(taskGID, { 'opt_fields': 'projects' });
+                let projects = result.data.projects.map( (p) => p.gid );
+                if (!projects.includes(process.env.ASANA_PROJECT_ID)) {
+                    fail(`Please ensure that the Asana task is added to ${process.env.ASANA_PROJECT_NAME} project`);
+                }
+            }
         }
     }
 }

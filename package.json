@@ -3,7 +3,6 @@
   "scripts": {
     "test": "jest"
   },
-  
   "devDependencies": {
     "@babel/cli": "^7.21.0",
     "@babel/core": "^7.21.4",
@@ -32,6 +31,7 @@
     ]
   },
   "dependencies": {
+    "asana": "^3.0.1",
     "github-webhook-event-types": "^1.2.1"
   }
 }
