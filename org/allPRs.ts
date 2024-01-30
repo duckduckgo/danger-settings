@@ -1,19 +1,27 @@
 import {fail, warn, danger} from "danger"
-import fetch from "node-fetch";
 
 export const isTaskInProject = async (taskGID: string, projectGID: string, token: string) => {
-
-    const response = await fetch(`https://app.asana.com/api/1.0/tasks/${taskGID}?opt_fields=projects`, {
-        headers: {
-            Authorization: `Bearer ${token}`
-        }
+    return new Promise<boolean>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("GET", `https://app.asana.com/api/1.0/tasks/${taskGID}?opt_fields=projects`);
+        xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+        xhr.onload = () => {
+            if (xhr.status === 200) {
+                const data = JSON.parse(xhr.responseText);
+                const projects = data.data.projects;
+                resolve(projects.map((p: any) => p.gid).includes(projectGID));
+            } else {
+                reject(new Error(`Request failed with status ${xhr.status}`));
+            }
+        };
+        xhr.onerror = () => {
+            reject(new Error("Request failed"));
+        };
+        xhr.send();
     });
-    const data = await response.json();
-    const projects = data.data.projects;
-    return projects.map((p: any) => p.gid).includes(projectGID);
 };
 
-export const prSize = async () => {  
+export const prSize = async () => {
     // Warn when there is a big PR
     if (danger.github.pr.additions + danger.github.pr.deletions > 500) {
         warn("PR has more than 500 lines of code changing. Consider splitting into smaller PRs if possible.");
