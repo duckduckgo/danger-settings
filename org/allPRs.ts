@@ -1,12 +1,16 @@
 import {fail, warn, danger} from "danger"
-import {promisify} from "util"
-import {exec} from "child_process"
-const execAsync = promisify(exec);
+import fetch from "node-fetch";
 
 export const isTaskInProject = async (taskGID: string, projectGID: string, token: string) => {
-    const projects = await execAsync(`curl -fLSs 'https://app.asana.com/api/1.0/tasks/${taskGID}?opt_fields=projects' -H 'Authorization: Bearer ${token}'`)
-    let projectsJSON = JSON.parse(projects.stdout.trim());
-    return projectsJSON.data.projects.map( (p: any) => p.gid ).includes(projectGID);
+
+    const response = await fetch(`https://app.asana.com/api/1.0/tasks/${taskGID}?opt_fields=projects`, {
+        headers: {
+            Authorization: `Bearer ${token}`
+        }
+    });
+    const data = await response.json();
+    const projects = data.data.projects;
+    return projects.map((p: any) => p.gid).includes(projectGID);
 };
 
 export const prSize = async () => {  
