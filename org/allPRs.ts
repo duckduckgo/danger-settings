@@ -11,6 +11,7 @@ export const prSize = async () => {
 export const internalLink = async () => {
     const regex = /https:\/\/app.asana.com\/[0-9]\/[0-9]*\/([0-9]*)/
 
+    let hasLink = false;
     // Warn when link to internal task is missing
     for (let bodyLine of danger.github.pr.body.toLowerCase().split(/\n/)) {
         if (bodyLine.includes("task/issue url:")) {
@@ -18,7 +19,10 @@ export const internalLink = async () => {
             let match = bodyLine.match(regex);
             if (!match || match.length < 2) {
                 fail("Please, don't forget to add a link to the internal task");
+                return;
             }
+
+            hasLink = true;
 
             let taskGID = match[1];
 
@@ -32,9 +36,18 @@ export const internalLink = async () => {
                 let projects = result.data.projects.map( (p) => p.gid );
                 if (!projects.includes(process.env.ASANA_PROJECT_ID)) {
                     fail(`Please ensure that the Asana task is added to ${process.env.ASANA_PROJECT_NAME} project`);
+                    return;
                 }
             }
+
+            if (hasLink) {
+                break;
+            }
         }
+    }
+
+    if (!hasLink) {
+        fail("Please, don't forget to add a link to the internal task");
     }
 }
 
