@@ -1,5 +1,13 @@
 import {fail, warn, danger} from "danger"
-import Asana from "asana"
+import {promisify} from "util"
+import {exec} from "child_process"
+const execAsync = promisify(exec);
+
+export const isTaskInProject = async (taskGID: string, projectGID: string, token: string) => {
+    const projects = await execAsync(`curl -fLSs 'https://app.asana.com/api/1.0/tasks/${taskGID}?opt_fields=projects' -H 'Authorization: Bearer ${token}'`)
+    let projectsJSON = JSON.parse(projects.stdout.trim());
+    return projectsJSON.data.projects.map( (p: any) => p.gid ).includes(projectGID);
+};
 
 export const prSize = async () => {  
     // Warn when there is a big PR
@@ -27,22 +35,13 @@ export const internalLink = async () => {
             let taskGID = match[1];
 
             if (process.env.ASANA_ACCESS_TOKEN && process.env.ASANA_PROJECT_ID && process.env.ASANA_PROJECT_NAME) {
-                let client = Asana.ApiClient.instance;
-                let token = client.authentications['token'];
-                token.accessToken = process.env.ASANA_ACCESS_TOKEN;
-
-                let tasksApiInstance = new Asana.TasksApi();
-                let result = await tasksApiInstance.getTask(taskGID, { 'opt_fields': 'projects' });
-                let projects = result.data.projects.map( (p) => p.gid );
-                if (!projects.includes(process.env.ASANA_PROJECT_ID)) {
+                if (!await isTaskInProject(taskGID, process.env.ASANA_PROJECT_ID, process.env.ASANA_ACCESS_TOKEN)) {
                     fail(`Please ensure that the Asana task is added to ${process.env.ASANA_PROJECT_NAME} project`);
                     return;
                 }
             }
 
-            if (hasLink) {
-                break;
-            }
+            break;
         }
     }
 
