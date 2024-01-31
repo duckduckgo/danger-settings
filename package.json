@@ -3,7 +3,6 @@
   "scripts": {
     "test": "jest"
   },
-  
   "devDependencies": {
     "@babel/cli": "^7.21.0",
     "@babel/core": "^7.21.4",
