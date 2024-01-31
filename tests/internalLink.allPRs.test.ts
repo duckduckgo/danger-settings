@@ -47,27 +47,4 @@ describe("Internal Asana link test", () => {
         
         expect(dm.fail).toHaveBeenCalledWith("Please, don't forget to add a link to the internal task")
     })
-
-    // it("does not fail when the description contains a link to Asana task in a correct project", async () => {
-    //     process.env.ASANA_ACCESS_TOKEN = '1234'
-    //     process.env.ASANA_PROJECT_ID = '0001'
-    //     process.env.ASANA_PROJECT_NAME = 'macOS App Board'
-
-    //     await internalLink();
-        
-    //     expect(dm.fail).not.toHaveBeenCalled()
-    // })
-
-    // it("fails when the description contains a link to Asana task not in a correct project", async () => {
-    //     process.env.ASANA_ACCESS_TOKEN = '1234'
-    //     process.env.ASANA_PROJECT_ID = '9999'
-    //     process.env.ASANA_PROJECT_NAME = 'macOS App Board'
-
-    //     const mockDoSomething = jest.spyOn(allPRs, 'doSomething')
-    //     mockDoSomething.mockImplementation(() => 'mocked method');
-
-    //     await allPRs.internalLink();
-        
-    //     expect(dm.fail).toHaveBeenCalledWith("Please ensure that the Asana task is added to macOS App Board project")
-    // })
 })
