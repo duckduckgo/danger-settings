@@ -8,11 +8,26 @@ export const prSize = async () => {
 }
 
 export const internalLink = async () => {
+    const regex = /https:\/\/app.asana.com\/[0-9]\/[0-9]*\/([0-9]*)/
+
+    let hasLink = false;
     // Warn when link to internal task is missing
     for (let bodyLine of danger.github.pr.body.toLowerCase().split(/\n/)) {
-        if (bodyLine.includes("task/issue url:") && (!bodyLine.includes("app.asana.com"))) {
-            fail("Please, don't forget to add a link to the internal task");
+        if (bodyLine.includes("task/issue url:")) {
+
+            let match = bodyLine.match(regex);
+            if (!match || match.length < 2) {
+                fail("Please, don't forget to add a link to the internal task");
+                return;
+            }
+
+            hasLink = true;
+            break;
         }
+    }
+
+    if (!hasLink) {
+        fail("Please, don't forget to add a link to the internal task");
     }
 }
 
