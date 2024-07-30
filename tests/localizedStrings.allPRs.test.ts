@@ -82,4 +82,14 @@ describe("Localized Strings checks", () => {
         
         expect(dm.warn).toHaveBeenCalledWith("You seem to be updating localized strings. Make sure that you request translations and include translated strings before you ship your change.")
     })
+
+    it("warns with UserText.swift-style added code", async () => {
+        dm.addedLines = `
++    static let mainMenuAppCheckforUpdates = NSLocalizedString("main-menu.app.check-for-updates", value: "Check for Updates!", comment: "Main Menu DuckDuckGo item")
+        `
+
+        await localizedStrings()
+
+        expect(dm.warn).toHaveBeenCalledWith("You seem to be updating localized strings. Make sure that you request translations and include translated strings before you ship your change.")
+    })
 })
