@@ -55,7 +55,7 @@ export const localizedStrings = async () => {
     for (let file in danger.git.modified_files) {
         let diff = await danger.git.diffForFile(file);
         let addedLines = diff?.added.split(/\n/);
-        warn(diff.added);
+        warn(file);
         // The regex is equal to:
         // * word boundary
         // * NSLocalizedString(
