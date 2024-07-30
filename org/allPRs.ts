@@ -60,7 +60,13 @@ export const localizedStrings = async () => {
         // * NSLocalizedString(
         // This way it will match `NSLocalizedString(` but not `NSLocalizedString` (without the opening parenthesis, which could be used in a comment).
         if (addedLines?.find(value => /\bNSLocalizedString\(/.test(value))) {
-            message("You seem to be updating localized strings. Make sure that you request translations and include translated strings before you ship your change.");
+            let instructions = "";
+            if (danger.github.thisPR.repo == "iOS") {
+                instructions = " See [Localization Guidelines](https://app.asana.com/0/0/1185863667140706/f) for more information.";
+            } else if (danger.github.thisPR.repo == "macos-browser") {
+                instructions = " See [Localization Guidelines](https://app.asana.com/0/0/1206727265537758/f) for more information.";
+            }
+            message("You seem to be updating localized strings. Make sure that you request translations and include translated strings before you ship your change." + instructions);
             break;
         }
     }

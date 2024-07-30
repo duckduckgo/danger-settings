@@ -23,6 +23,9 @@ beforeEach(() => {
                 additions: 200,
                 deletions: 10
             },
+            thisPR: {
+                repo: "iOS"
+            },
         },
     }
 })
@@ -73,23 +76,47 @@ describe("Localized Strings checks", () => {
         expect(dm.message).not.toHaveBeenCalled()
     })
 
-    it("messages with added code that contains NSLocalizedString call", async () => {
+    it("messages with added code that contains NSLocalizedString call, including iOS Localization guidelines URL when run for iOS repo", async () => {
+        dm.danger.github.thisPR.repo = "iOS"
         dm.addedLines = `
 +    let title = NSLocalizedString("title", comment: "Title")
         `
 
         await localizedStrings()
         
-        expect(dm.message).toHaveBeenCalledWith("You seem to be updating localized strings. Make sure that you request translations and include translated strings before you ship your change.")
+        expect(dm.message).toHaveBeenCalledWith("You seem to be updating localized strings. Make sure that you request translations and include translated strings before you ship your change. See [Localization Guidelines](https://app.asana.com/0/0/1185863667140706/f) for more information.")
     })
 
-    it("messages with UserText.swift-style added code", async () => {
+    it("messages with added code that contains NSLocalizedString call, including macOS Localization guidelines URL when run for macos-browser repo", async () => {
+        dm.danger.github.thisPR.repo = "macos-browser"
+        dm.addedLines = `
++    let title = NSLocalizedString("title", comment: "Title")
+        `
+
+        await localizedStrings()
+        
+        expect(dm.message).toHaveBeenCalledWith("You seem to be updating localized strings. Make sure that you request translations and include translated strings before you ship your change. See [Localization Guidelines](https://app.asana.com/0/0/1206727265537758/f) for more information.")
+    })
+
+    it("messages with UserText.swift-style added code, including iOS Localization guidelines URL when run for iOS repo", async () => {
+        dm.danger.github.thisPR.repo = "iOS"
         dm.addedLines = `
 +    static let mainMenuAppCheckforUpdates = NSLocalizedString("main-menu.app.check-for-updates", value: "Check for Updates!", comment: "Main Menu DuckDuckGo item")
         `
 
         await localizedStrings()
 
-        expect(dm.message).toHaveBeenCalledWith("You seem to be updating localized strings. Make sure that you request translations and include translated strings before you ship your change.")
+        expect(dm.message).toHaveBeenCalledWith("You seem to be updating localized strings. Make sure that you request translations and include translated strings before you ship your change. See [Localization Guidelines](https://app.asana.com/0/0/1185863667140706/f) for more information.")
+    })
+
+    it("messages with UserText.swift-style added code, including macOS Localization guidelines URL when run for macos-browser repo", async () => {
+        dm.danger.github.thisPR.repo = "macos-browser"
+        dm.addedLines = `
++    static let mainMenuAppCheckforUpdates = NSLocalizedString("main-menu.app.check-for-updates", value: "Check for Updates!", comment: "Main Menu DuckDuckGo item")
+        `
+
+        await localizedStrings()
+
+        expect(dm.message).toHaveBeenCalledWith("You seem to be updating localized strings. Make sure that you request translations and include translated strings before you ship your change. See [Localization Guidelines](https://app.asana.com/0/0/1206727265537758/f) for more information.")
     })
 })
