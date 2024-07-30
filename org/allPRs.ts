@@ -51,6 +51,21 @@ export const xcodeprojConfiguration = async () => {
     }
 }
 
+export const localizedStrings = async () => {
+    const projectFile = "DuckDuckGo.xcodeproj/project.pbxproj";
+    for (let file in danger.git.modified_files) {
+        let diff = await danger.git.diffForFile(file);
+        let addedLines = diff?.added.split(/\n/);
+        // The regex is equal to:
+        // * word boundary
+        // * NSLocalizedString(
+        // This way it will match `NSLocalizedString(` but not `NSLocalizedString` (without the opening parenthesis, which could be used in a comment).
+        if (addedLines?.find(value => /\bNSLocalizedString\(/.test(value))) {
+            warn("You seem to be updating localized strings. Make sure that you request translations and include translated strings before you ship your change.");
+        }
+    }
+}
+
 export const licensedFonts = async () => {
     // Fail if licensed fonts are committed
     const modifiedFiles = danger.git.modified_files; 
