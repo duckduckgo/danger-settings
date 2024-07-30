@@ -6,7 +6,7 @@ import { localizedStrings } from '../org/allPRs'
 
 beforeEach(() => {
     dm.addedLines = ""
-    dm.warn = jest.fn().mockReturnValue(true);
+    dm.message = jest.fn().mockReturnValue(true);
 
     dm.danger = {
         git: {
@@ -28,29 +28,29 @@ beforeEach(() => {
 })
 
 describe("Localized Strings checks", () => {
-    it("does not warn with no changes", async () => {
+    it("does not message with no changes", async () => {
         dm.danger.git.modified_files = []
 
         await localizedStrings()
 
-        expect(dm.warn).not.toHaveBeenCalled()
+        expect(dm.message).not.toHaveBeenCalled()
     })
 
-    it("does not warn with no diff", async () => {
+    it("does not message with no diff", async () => {
         dm.danger.git.diffForFile = async (_filename) => {}
 
         await localizedStrings()
 
-        expect(dm.warn).not.toHaveBeenCalled()
+        expect(dm.message).not.toHaveBeenCalled()
     })
 
-    it("does not fail with no additions", async () => {
+    it("does not message with no additions", async () => {
         await localizedStrings()
 
-        expect(dm.warn).not.toHaveBeenCalled()
+        expect(dm.message).not.toHaveBeenCalled()
     })
 
-    it("does not warn with added code that doesn't contain NSLocalizedString", async () => {
+    it("does not message with added code that doesn't contain NSLocalizedString", async () => {
         dm.addedLines = `
 +    fileprivate struct Constants {
 +        static let databaseName = "Database"
@@ -60,36 +60,36 @@ describe("Localized Strings checks", () => {
 
         await localizedStrings()
 
-        expect(dm.warn).not.toHaveBeenCalled()
+        expect(dm.message).not.toHaveBeenCalled()
     })
 
-    it("does not warn with added code that mentions NSLocalizedString but doesn't call it", async () => {
+    it("does not message with added code that mentions NSLocalizedString but doesn't call it", async () => {
         dm.addedLines = `
 +    // We're not using NSLocalizedString here.
         `
 
         await localizedStrings()
 
-        expect(dm.warn).not.toHaveBeenCalled()
+        expect(dm.message).not.toHaveBeenCalled()
     })
 
-    it("warns with added code that contains NSLocalizedString call", async () => {
+    it("messages with added code that contains NSLocalizedString call", async () => {
         dm.addedLines = `
 +    let title = NSLocalizedString("title", comment: "Title")
         `
 
         await localizedStrings()
         
-        expect(dm.warn).toHaveBeenCalledWith("You seem to be updating localized strings. Make sure that you request translations and include translated strings before you ship your change.")
+        expect(dm.message).toHaveBeenCalledWith("You seem to be updating localized strings. Make sure that you request translations and include translated strings before you ship your change.")
     })
 
-    it("warns with UserText.swift-style added code", async () => {
+    it("messages with UserText.swift-style added code", async () => {
         dm.addedLines = `
 +    static let mainMenuAppCheckforUpdates = NSLocalizedString("main-menu.app.check-for-updates", value: "Check for Updates!", comment: "Main Menu DuckDuckGo item")
         `
 
         await localizedStrings()
 
-        expect(dm.warn).toHaveBeenCalledWith("You seem to be updating localized strings. Make sure that you request translations and include translated strings before you ship your change.")
+        expect(dm.message).toHaveBeenCalledWith("You seem to be updating localized strings. Make sure that you request translations and include translated strings before you ship your change.")
     })
 })

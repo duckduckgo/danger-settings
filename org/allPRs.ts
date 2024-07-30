@@ -1,4 +1,4 @@
-import {fail, warn, danger} from "danger"
+import {fail, warn, message, danger} from "danger"
 
 export const prSize = async () => {  
     // Warn when there is a big PR
@@ -59,8 +59,8 @@ export const localizedStrings = async () => {
         // * word boundary
         // * NSLocalizedString(
         // This way it will match `NSLocalizedString(` but not `NSLocalizedString` (without the opening parenthesis, which could be used in a comment).
-        if (addedLines?.find(value => /^.*\bNSLocalizedString\(.*$/.test(value))) {
-            warn("You seem to be updating localized strings. Make sure that you request translations and include translated strings before you ship your change.");
+        if (addedLines?.find(value => /\bNSLocalizedString\(/.test(value))) {
+            message("You seem to be updating localized strings. Make sure that you request translations and include translated strings before you ship your change.");
             break;
         }
     }
