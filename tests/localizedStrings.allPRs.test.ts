@@ -28,7 +28,7 @@ beforeEach(() => {
 })
 
 describe("Localized Strings checks", () => {
-    it("does not fail with no changes to project file", async () => {
+    it("does not warn with no changes", async () => {
         dm.danger.git.modified_files = []
 
         await localizedStrings()
@@ -36,7 +36,7 @@ describe("Localized Strings checks", () => {
         expect(dm.warn).not.toHaveBeenCalled()
     })
 
-    it("does not fail with no diff in project file", async () => {
+    it("does not warn with no diff", async () => {
         dm.danger.git.diffForFile = async (_filename) => {}
 
         await localizedStrings()
@@ -50,7 +50,7 @@ describe("Localized Strings checks", () => {
         expect(dm.warn).not.toHaveBeenCalled()
     })
 
-    it("does not fail with added code that doesn't contain NSLocalizedString", async () => {
+    it("does not warn with added code that doesn't contain NSLocalizedString", async () => {
         dm.addedLines = `
 +    fileprivate struct Constants {
 +        static let databaseName = "Database"
@@ -63,7 +63,7 @@ describe("Localized Strings checks", () => {
         expect(dm.warn).not.toHaveBeenCalled()
     })
 
-    it("does not fail with added code that mentions NSLocalizedString but doesn't call it", async () => {
+    it("does not warn with added code that mentions NSLocalizedString but doesn't call it", async () => {
         dm.addedLines = `
 +    // We're not using NSLocalizedString here.
         `
@@ -73,7 +73,7 @@ describe("Localized Strings checks", () => {
         expect(dm.warn).not.toHaveBeenCalled()
     })
 
-    it("fails with added code that contains NSLocalizedString call", async () => {
+    it("warns with added code that contains NSLocalizedString call", async () => {
         dm.addedLines = `
 +    let title = NSLocalizedString("title", comment: "Title")
         `
