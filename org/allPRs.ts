@@ -188,6 +188,7 @@ export default async () => {
     await prSize()
     await internalLink()
     await xcodeprojConfiguration()
+    await localizedStrings()
     await licensedFonts()
     await newColors()
     await embeddedFilesURLMismatch()
