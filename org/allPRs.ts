@@ -1,4 +1,4 @@
-import {fail, warn, danger} from "danger"
+import {fail, warn, message, danger} from "danger"
 
 export const prSize = async () => {  
     // Warn when there is a big PR
@@ -47,6 +47,27 @@ export const xcodeprojConfiguration = async () => {
             if (addedLines?.find(value => /^\+\t+[A-Z_0-9]* =.*;$/.test(value))) {
                 fail("No configuration is allowed inside Xcode project file - use xcconfig files instead.");
             }
+        }
+    }
+}
+
+export const localizedStrings = async () => {
+    for (let file of danger.git.modified_files) {
+        let diff = await danger.git.diffForFile(file);
+        let addedLines = diff?.added.split(/\n/);
+        // The regex is equal to:
+        // * word boundary
+        // * NSLocalizedString(
+        // This way it will match `NSLocalizedString(` but not `NSLocalizedString` (without the opening parenthesis, which could be used in a comment).
+        if (addedLines?.find(value => /\bNSLocalizedString\(/.test(value))) {
+            let instructions = "";
+            if (danger.github.thisPR.repo == "iOS") {
+                instructions = " See [Localization Guidelines](https://app.asana.com/0/0/1185863667140706/f) for more information.";
+            } else if (danger.github.thisPR.repo == "macos-browser") {
+                instructions = " See [Localization Guidelines](https://app.asana.com/0/0/1206727265537758/f) for more information.";
+            }
+            message("You seem to be updating localized strings. Make sure that you request translations and include translated strings before you ship your change." + instructions);
+            break;
         }
     }
 }
@@ -173,6 +194,7 @@ export default async () => {
     await prSize()
     await internalLink()
     await xcodeprojConfiguration()
+    await localizedStrings()
     await licensedFonts()
     await newColors()
     await embeddedFilesURLMismatch()
