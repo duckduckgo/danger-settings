@@ -205,5 +205,5 @@ export default async () => {
     await licensedFonts()
     await newColors()
     await embeddedFilesURLMismatch()
-   // await dodChecked()
+    await dodChecked()
 }   
