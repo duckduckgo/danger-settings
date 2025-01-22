@@ -25,7 +25,7 @@ describe("Definition of Done checked", () => {
 
         await dodChecked()
         
-        expect(dm.fail).toHaveBeenCalledWith("Please, make sure this PR satisfies our [Definition of Done](https://app.asana.com/0/1202500774821704/1207634633537039/f).")
+        expect(dm.fail).toHaveBeenCalledWith("Please, make sure this PR satisfies our [Definition of Done](https://app.asana.com/0/1202500774821704/1207634633537039/f) and the relevant checkbox is checked.")
     })
 
     it("does fail when Definition of Done checkbox is not checked", async () => {
@@ -36,7 +36,7 @@ describe("Definition of Done checked", () => {
 
         await dodChecked()
         
-        expect(dm.fail).toHaveBeenCalledWith("Please, make sure this PR satisfies our [Definition of Done](https://app.asana.com/0/1202500774821704/1207634633537039/f).")
+        expect(dm.fail).toHaveBeenCalledWith("Please, make sure this PR satisfies our [Definition of Done](https://app.asana.com/0/1202500774821704/1207634633537039/f) and the relevant checkbox is checked.")
     })
 
     it("does not fail when Definition of Done checkbox is checked (Lower Case)", async () => {
@@ -47,7 +47,7 @@ describe("Definition of Done checked", () => {
 
         await dodChecked()
         
-        expect(dm.fail).not.toHaveBeenCalledWith()
+        expect(dm.fail).not.toHaveBeenCalled()
     })
 
     it("does not fail when Definition of Done checkbox is checked (Upper Case)", async () => {
@@ -58,6 +58,6 @@ describe("Definition of Done checked", () => {
 
         await dodChecked()
         
-        expect(dm.fail).not.toHaveBeenCalledWith()
+        expect(dm.fail).not.toHaveBeenCalled()
     })
 })

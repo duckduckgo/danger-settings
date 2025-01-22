@@ -192,7 +192,7 @@ export const embeddedFilesURLMismatch = async() => {
 export const dodChecked = async () => {
     // Warn when DOD checkbox is not checked
     if (!danger.github.pr.body.toLowerCase().includes("* [x] does this pr satisfy our [definition of done]")) {
-        fail("Please, make sure this PR satisfies our [Definition of Done](https://app.asana.com/0/1202500774821704/1207634633537039/f).");
+        fail("Please, make sure this PR satisfies our [Definition of Done](https://app.asana.com/0/1202500774821704/1207634633537039/f) and the relevant checkbox is checked.");
     }
 }
 
