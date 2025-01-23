@@ -189,6 +189,13 @@ export const embeddedFilesURLMismatch = async() => {
     await privacyConfigMismatch(repo, modifiedFiles)
 }
 
+export const dodChecked = async () => {
+    // Warn when DOD checkbox is not checked
+    if (!danger.github.pr.body.toLowerCase().includes("* [x] does this pr satisfy our [definition of done]")) {
+        fail("Please, make sure this PR satisfies our [Definition of Done](https://app.asana.com/0/1202500774821704/1207634633537039/f) and the relevant checkbox is checked.");
+    }
+}
+
 // Default run
 export default async () => {
     await prSize()
@@ -198,4 +205,5 @@ export default async () => {
     await licensedFonts()
     await newColors()
     await embeddedFilesURLMismatch()
-}
+    await dodChecked()
+}   
