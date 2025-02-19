@@ -2,8 +2,23 @@ import {fail, warn, message, danger} from "danger"
 
 export const prSize = async () => {  
     // Warn when there is a big PR
-    if (danger.github.pr.additions + danger.github.pr.deletions > 500) {
-        warn("PR has more than 500 lines of code changing. Consider splitting into smaller PRs if possible.");
+    const excludedPaths = [
+        /\.xcodeproj\//,         // xcode project files
+        /\.xcassets\//,          // asset catalogs
+        /\.xcworkspace\//        // xcode workspace files
+    ];
+
+    const modifiedFiles = danger.git.modified_files;
+    const addedLines = danger.github.pr.additions;
+
+    // Check if all changed files are in excluded paths
+    const allFilesExcluded = modifiedFiles.every(file => 
+        excludedPaths.some(pattern => pattern.test(file))
+    );
+
+    // Only warn if there are non-excluded files and additions are >= 500
+    if (!allFilesExcluded && addedLines >= 500) {
+        warn("PR has 500 or more lines of added code (excluding Xcode projects and assets). Consider splitting into smaller PRs if possible.");
     }
 }
 
