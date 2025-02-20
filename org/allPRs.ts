@@ -23,7 +23,7 @@ export const prSize = async () => {
     for (const file of filesToCheck) {
         const diff = await danger.git.diffForFile(file);
         if (diff) {
-            totalAdditions += diff.additions;
+            totalAdditions += diff.added.split('\n').length - 1;
         }
     }
 
