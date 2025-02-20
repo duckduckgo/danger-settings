@@ -1,9 +1,35 @@
 import {fail, warn, message, danger} from "danger"
 
 export const prSize = async () => {  
-    // Warn when there is a big PR
-    if (danger.github.pr.additions + danger.github.pr.deletions > 500) {
-        warn("PR has more than 500 lines of code changing. Consider splitting into smaller PRs if possible.");
+    // Define file types to exclude for iOS and macOS projects
+    const excludedExtensions = ['.xcodeproj', '.xcassets', '.xcworkspace'];
+
+    // Get all modified and added files (unique)
+    const changedFiles = [...new Set([
+        ...danger.git.modified_files,
+        ...danger.git.created_files
+    ])];
+
+    // Filter out excluded file types
+    const filesToCheck = changedFiles.filter(file => 
+        !excludedExtensions.some(ext => file.includes(ext))
+    );
+
+    // If no files to check after filtering, exit early
+    if (filesToCheck.length === 0) return;
+
+    // Count additions
+    let totalAdditions = 0;
+    for (const file of filesToCheck) {
+        const diff = await danger.git.diffForFile(file);
+        if (diff) {
+            totalAdditions += diff.added.split('\n').length - 1;
+        }
+    }
+
+    // Issue warning if additions exceed 500
+    if (totalAdditions >= 500) {
+        warn(`PR has ${totalAdditions} lines of added code (excluding Xcode projects and assets). Consider splitting into smaller PRs if possible.`);
     }
 }
 
