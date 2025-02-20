@@ -1,24 +1,35 @@
 import {fail, warn, message, danger} from "danger"
 
 export const prSize = async () => {  
-    // Warn when there is a big PR
-    const excludedPaths = [
-        /\.xcodeproj\//,         // xcode project files
-        /\.xcassets\//,          // asset catalogs
-        /\.xcworkspace\//        // xcode workspace files
-    ];
+    // Define file types to exclude for iOS and macOS projects
+    const excludedExtensions = ['.xcodeproj', '.xcassets', '.xcworkspace'];
 
-    const modifiedFiles = danger.git.modified_files;
-    const addedLines = danger.github.pr.additions;
+    // Get all modified and added files (unique)
+    const changedFiles = [...new Set([
+        ...danger.git.modified_files,
+        ...danger.git.created_files
+    ])];
 
-    // Check if all changed files are in excluded paths
-    const allFilesExcluded = modifiedFiles.every(file => 
-        excludedPaths.some(pattern => pattern.test(file))
+    // Filter out excluded file types
+    const filesToCheck = changedFiles.filter(file => 
+        !excludedExtensions.some(ext => file.includes(ext))
     );
 
-    // Only warn if there are non-excluded files and additions are >= 500
-    if (!allFilesExcluded && addedLines >= 500) {
-        warn("PR has 500 or more lines of added code (excluding Xcode projects and assets). Consider splitting into smaller PRs if possible.");
+    // If no files to check after filtering, exit early
+    if (filesToCheck.length === 0) return;
+
+    // Count additions
+    let totalAdditions = 0;
+    for (const file of filesToCheck) {
+        const diff = await danger.git.diffForFile(file);
+        if (diff) {
+            totalAdditions += diff.additions;
+        }
+    }
+
+    // Issue warning if additions exceed 500
+    if (totalAdditions >= 500) {
+        warn(`PR has ${totalAdditions} lines of added code (excluding Xcode projects and assets). Consider splitting into smaller PRs if possible.`);
     }
 }
 
