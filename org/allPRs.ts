@@ -71,7 +71,7 @@ export const xcodeprojConfiguration_macOS = async () => {
             // * arbitrary number of any characters (the value can be empty)
             // * a semicolon
             if (addedLines?.find(value => /^\+\t+[A-Z_0-9]* =.*;$/.test(value))) {
-                fail("No configuration is allowed inside Xcode project file - use xcconfig files instead.");
+                fail("No configuration is allowed inside macOS Xcode project file - use xcconfig files instead.");
             }
         }
     }

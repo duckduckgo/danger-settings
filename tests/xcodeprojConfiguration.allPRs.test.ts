@@ -83,7 +83,7 @@ describe("Xcode project file configuration checks", () => {
 
         await xcodeprojConfiguration_macOS()
         
-        expect(dm.fail).toHaveBeenCalledWith("No configuration is allowed inside Xcode project file - use xcconfig files instead.")
+        expect(dm.fail).toHaveBeenCalledWith("No configuration is allowed inside macOS Xcode project file - use xcconfig files instead.")
     })
 
     it("fails with added configuration with empty value", async () => {
@@ -93,7 +93,7 @@ describe("Xcode project file configuration checks", () => {
 
         await xcodeprojConfiguration_macOS()
         
-        expect(dm.fail).toHaveBeenCalledWith("No configuration is allowed inside Xcode project file - use xcconfig files instead.")
+        expect(dm.fail).toHaveBeenCalledWith("No configuration is allowed inside macOS Xcode project file - use xcconfig files instead.")
     })
 
     it("fails with added configuration with key containing digits", async () => {
@@ -103,7 +103,7 @@ describe("Xcode project file configuration checks", () => {
 
         await xcodeprojConfiguration_macOS()
         
-        expect(dm.fail).toHaveBeenCalledWith("No configuration is allowed inside Xcode project file - use xcconfig files instead.")
+        expect(dm.fail).toHaveBeenCalledWith("No configuration is allowed inside macOS Xcode project file - use xcconfig files instead.")
     })
 
     it("does not fail with added cofiguration in non-macos app repo", async () => {
