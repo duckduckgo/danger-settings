@@ -148,7 +148,7 @@ async function trackerBlockingMismatch(modifiedFiles: any) {
     let tdsUrlProvideriOSRegex = 'static let trackerDataSet = URL.*string:.*staticBase.*trackerblocking\/(.*)\".*';
     let updateEmbeddediOSRegex = 'performUpdate \'https://staticcdn.duckduckgo.com/trackerblocking/(.*)\' \".*';
 
-    let tdsUrlProviderFilemacOSPath = 'macOS/DuckDuckGo/AppDelegate/AppConfigurationURLProvider.swift';
+    let tdsUrlProviderFilemacOSPath = 'macOS/DuckDuckGo/Application/AppConfigurationURLProvider.swift';
     let updateEmbeddedFilemacOSPath = 'macOS/scripts/update_embedded.sh';
     let tdsUrlProvidermacOSRegex = 'public static let defaultTrackerDataURL = URL.string: \"(.*)\".*';
     let updateEmbeddedmacOSRegex = 'TDS_URL=\"(.*)\"';
@@ -171,7 +171,7 @@ async function privacyConfigMismatch(modifiedFiles: any) {
     let configUrlProvideriOSRegex = 'static let privacyConfig = URL.*string:.*staticBase.*trackerblocking\/config\/(.*)\".*';
     let updateEmbeddediOSRegex = 'performUpdate \'https://staticcdn.duckduckgo.com/trackerblocking/config/(.*)\' \".*';
 
-    let appConfigUrlProviderFilemacOSPath = 'macOS/DuckDuckGo/AppDelegate/AppConfigurationURLProvider.swift';
+    let appConfigUrlProviderFilemacOSPath = 'macOS/DuckDuckGo/Application/AppConfigurationURLProvider.swift';
     let updateEmbeddedFilemacOSPath = 'macOS/scripts/update_embedded.sh';
     let configUrlProvidermacOSRegex = 'public static let defaultPrivacyConfigurationURL = URL.string: \"(.*)\".*';
     let updateEmbeddedmacOSRegex = 'CONFIG_URL=\"(.*)\"';
