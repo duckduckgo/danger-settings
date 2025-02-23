@@ -118,7 +118,6 @@ export const newColors = async () => {
 
 async function extractUrl(filePath: string, regex: string, matchGroup: any): Promise<string> {
     const fileContents = await danger.github.utils.fileContents(filePath);
-
     var fileMatch = fileContents.match(regex);
     var extractedUrl = '';
     if (Array.isArray(fileMatch) && fileMatch.length > matchGroup) {
@@ -135,6 +134,7 @@ async function checkForMismatch(modifiedFiles: any, sourceCodeUrlFilePath: strin
     if (modifiedFiles.some(path => embeddedUrlFiles.includes(path))) {
         var sourceCodeFileContentsUrl = await extractUrl(sourceCodeUrlFilePath, sourceCodeUrlRegex, 1);
         var scriptContentsUrl = await extractUrl(scriptFilePath, scriptRegex, 1);
+
         return (sourceCodeFileContentsUrl != scriptContentsUrl);
     }
 
