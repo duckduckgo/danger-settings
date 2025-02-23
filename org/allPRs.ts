@@ -57,9 +57,9 @@ export const internalLink = async () => {
     }
 }
 
-export const xcodeprojConfiguration = async () => {
-    if (danger.github.thisPR.repo == "macos-browser") {
-        const projectFile = "DuckDuckGo.xcodeproj/project.pbxproj";
+export const xcodeprojConfiguration_macOS = async () => {
+    if (danger.github.thisPR.repo == "apple-browsers") {
+        const projectFile = "macOS/DuckDuckGo-macOS.xcodeproj/project.pbxproj";
         if (danger.git.modified_files.includes(projectFile)) {
             let diff = await danger.git.diffForFile(projectFile);
             let addedLines = diff?.added.split(/\n/);
@@ -143,38 +143,30 @@ async function checkForMismatch(modifiedFiles: any, sourceCodeUrlFilePath: strin
 
 async function trackerBlockingMismatch(repository: string, modifiedFiles: any) {
     // Fail if Tracker Blocking config URL is different between code and script
-    var tdsUrlProviderFilePath = ''; 
-    var updateEmbeddedFilePath = ''; 
-    var tdsUrlProviderRegex = '';
-    var updateEmbeddedRegex = '';
+    var tdsUrlProviderFileiOSPath = 'iOS/Core/AppURLs.swift'; 
+    var tdsUrlProviderFilemacOSPath = 'macOS/DuckDuckGo/AppDelegate/AppConfigurationURLProvider.swift';
+    
+    let updateEmbeddedFileiOSPath = 'iOS/scripts/update_embedded.sh';
+    let updateEmbeddedFilemacOSPath = 'macOS/scripts/update_embedded.sh';
+    
+    let tdsUrlProvideriOSRegex = 'static let trackerDataSet = URL.*string:.*staticBase.*trackerblocking\/(.*)\".*';
+    let tdsUrlProvidermacOSRegex = 'case \.trackerDataSet: return URL.string: \"(.*)\".*';
 
-    // Configure
-    switch (repository) {
-        case "iOS":
-            tdsUrlProviderFilePath = 'Core/AppURLs.swift';
-            updateEmbeddedFilePath = 'scripts/update_embedded.sh';
+    var updateEmbeddediOSRegex = 'performUpdate \'https://staticcdn.duckduckgo.com/trackerblocking/(.*)\' \".*';
+    var updateEmbeddedmacOSRegex = 'TDS_URL=\"(.*)\"';
 
-            tdsUrlProviderRegex = 'static let trackerDataSet = URL.*string:.*staticBase.*trackerblocking\/(.*)\".*';
-            updateEmbeddedRegex = 'performUpdate \'https://staticcdn.duckduckgo.com/trackerblocking/(.*)\' \".*';
-            break;
-        case "macos-browser":
-            tdsUrlProviderFilePath = 'DuckDuckGo/AppDelegate/AppConfigurationURLProvider.swift';
-            updateEmbeddedFilePath = 'scripts/update_embedded.sh';
+    const iosResult = await checkForMismatch(modifiedFiles, tdsUrlProviderFileiOSPath, tdsUrlProvideriOSRegex, updateEmbeddedFileiOSPath, updateEmbeddediOSRegex);
+    if (iosResult) {
+        fail(`Content Tracker URL mismatch. Please check ${tdsUrlProviderFileiOSPath} and ${updateEmbeddedFileiOSPath}`)
+    }
 
-            tdsUrlProviderRegex = 'case \.trackerDataSet: return URL.string: \"(.*)\".*';
-            updateEmbeddedRegex = 'TDS_URL=\"(.*)\"';
-            break;
-        default:
-            return;
-    } 
-
-    const res = await checkForMismatch(modifiedFiles, tdsUrlProviderFilePath, tdsUrlProviderRegex, updateEmbeddedFilePath, updateEmbeddedRegex);
-    if (res) {
-        fail(`Content Tracker URL mismatch. Please check ${tdsUrlProviderFilePath} and ${updateEmbeddedFilePath}`)
+    const macosResult = await checkForMismatch(modifiedFiles, tdsUrlProviderFilemacOSPath, tdsUrlProvidermacOSRegex, updateEmbeddedFilemacOSPath, updateEmbeddedmacOSRegex);
+    if (macosResult) {
+        fail(`Content Tracker URL mismatch. Please check ${tdsUrlProviderFilemacOSPath} and ${updateEmbeddedFilemacOSPath}`)
     }
 }
 
-async function privacyConfigMismatch (repository: string, modifiedFiles: any) {
+async function privacyConfigMismatch(repository: string, modifiedFiles: any) {
     // Fail if Tracker Blocking config URL is different between code and script
     var appConfigUrlProviderFilePath = ''; 
     var updateEmbeddedFilePath = ''; 
@@ -221,7 +213,7 @@ export const embeddedFilesURLMismatch = async() => {
 export default async () => {
     await prSize()
     await internalLink()
-    await xcodeprojConfiguration()
+    await xcodeprojConfiguration_macOS()
     await localizedStrings()
     await licensedFonts()
     await newColors()

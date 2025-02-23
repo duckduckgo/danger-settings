@@ -10,13 +10,13 @@ beforeEach(() => {
 
     dm.danger = {
         git: {
-            modified_files: ["Core/AppConfigurationURLProvider.swift"],
+            modified_files: ["iOS/Core/AppConfigurationURLProvider.swift"],
             created_files: [],
             deleted_files: [],
         },
         github: {
             thisPR: {
-                repo: "iOS"
+                repo: "apple-browsers"
             },
             utils: {
                 fileContents: jest.fn(),
@@ -37,7 +37,7 @@ describe("Tracker Blocking URL checks on iOS", () => {
     })
 
     it("does not fail with unrelevant changes to relevant files", async () => {
-        dm.danger.git.modified_files = ["DuckDuckGo/Assets.xcassets/SomeColor.colorset/Contents.json", "Core/AppURLs.swift"]
+        dm.danger.git.modified_files = ["iOS/DuckDuckGo/Assets.xcassets/SomeColor.colorset/Contents.json", "iOS/Core/AppURLs.swift"]
         var updateEmbeddedContent = "performUpdate 'https://staticcdn.duckduckgo.com/trackerblocking/v5/current/ios-tds.json' \"${base_dir}/Core/AppTrackerDataSetProvider.swift\" \"${base_dir}/Core/trackerData.json\\r\n";
         updateEmbeddedContent += "performUpdate 'https://staticcdn.duckduckgo.com/trackerblocking/config/v3/ios-configNEW.json' \"${base_dir}/Core/AppPrivacyConfigurationDataProvider.swift\" \"${base_dir}/Core/ios-config.json\"";
 
@@ -52,7 +52,7 @@ describe("Tracker Blocking URL checks on iOS", () => {
     })
 
     it("fails with mismatching changes (only AppURLs.swift changed)", async () => {
-        dm.danger.git.modified_files = ["DuckDuckGo/Assets.xcassets/SomeColor.colorset/Contents.json", "Core/AppURLs.swift"]
+        dm.danger.git.modified_files = ["iOS/DuckDuckGo/Assets.xcassets/SomeColor.colorset/Contents.json", "iOS/Core/AppURLs.swift"]
         var updateEmbeddedContent = "performUpdate 'https://staticcdn.duckduckgo.com/trackerblocking/v6/current/ios-tds.json' \"${base_dir}/Core/AppTrackerDataSetProvider.swift\" \"${base_dir}/Core/trackerData.json\\r\n";
         updateEmbeddedContent += "performUpdate 'https://staticcdn.duckduckgo.com/trackerblocking/config/v3/ios-config.json' \"${base_dir}/Core/AppPrivacyConfigurationDataProvider.swift\" \"${base_dir}/Core/ios-config.json\"";
 
@@ -63,11 +63,11 @@ describe("Tracker Blocking URL checks on iOS", () => {
 
         await embeddedFilesURLMismatch()
 
-        expect(dm.fail).toHaveBeenCalledWith("Content Tracker URL mismatch. Please check Core/AppURLs.swift and scripts/update_embedded.sh")
+        expect(dm.fail).toHaveBeenCalledWith("Content Tracker URL mismatch. Please check iOS/Core/AppURLs.swift and iOS/scripts/update_embedded.sh")
     })
 
     it("fails with mismatching changes (only update_embedded.sh changed)", async () => {
-        dm.danger.git.modified_files = ["DuckDuckGo/Assets.xcassets/SomeColor.colorset/Contents.json", "scripts/update_embedded.sh"]
+        dm.danger.git.modified_files = ["iOS/DuckDuckGo/Assets.xcassets/SomeColor.colorset/Contents.json", "iOS/scripts/update_embedded.sh"]
         var updateEmbeddedContent = "performUpdate 'https://staticcdn.duckduckgo.com/trackerblocking/v5/current/ios-tds.json' \"${base_dir}/Core/AppTrackerDataSetProvider.swift\" \"${base_dir}/Core/trackerData.json\\r\n";
         updateEmbeddedContent += "performUpdate 'https://staticcdn.duckduckgo.com/trackerblocking/config/v3/ios-config.json' \"${base_dir}/Core/AppPrivacyConfigurationDataProvider.swift\" \"${base_dir}/Core/ios-config.json\"";
 
@@ -78,11 +78,11 @@ describe("Tracker Blocking URL checks on iOS", () => {
 
         await embeddedFilesURLMismatch()
 
-        expect(dm.fail).toHaveBeenCalledWith("Content Tracker URL mismatch. Please check Core/AppURLs.swift and scripts/update_embedded.sh")
+        expect(dm.fail).toHaveBeenCalledWith("Content Tracker URL mismatch. Please check iOS/Core/AppURLs.swift and iOS/scripts/update_embedded.sh")
     })
 
     it("fails with mismatching changes (both files changed)", async () => {
-        dm.danger.git.modified_files = ["DuckDuckGo/Assets.xcassets/SomeColor.colorset/Contents.json", "scripts/update_embedded.sh", "Core/AppURLs.swift"]
+        dm.danger.git.modified_files = ["iOS/DuckDuckGo/Assets.xcassets/SomeColor.colorset/Contents.json", "iOS/scripts/update_embedded.sh", "iOS/Core/AppURLs.swift"]
         var updateEmbeddedContent = "performUpdate 'https://staticcdn.duckduckgo.com/trackerblocking/v7/current/ios-tds.json' \"${base_dir}/Core/AppTrackerDataSetProvider.swift\" \"${base_dir}/Core/trackerData.json\\r\n";
         updateEmbeddedContent += "performUpdate 'https://staticcdn.duckduckgo.com/trackerblocking/config/v3/ios-config.json' \"${base_dir}/Core/AppPrivacyConfigurationDataProvider.swift\" \"${base_dir}/Core/ios-config.json\"";
 
@@ -93,11 +93,11 @@ describe("Tracker Blocking URL checks on iOS", () => {
 
         await embeddedFilesURLMismatch()
 
-        expect(dm.fail).toHaveBeenCalledWith("Content Tracker URL mismatch. Please check Core/AppURLs.swift and scripts/update_embedded.sh")
+        expect(dm.fail).toHaveBeenCalledWith("Content Tracker URL mismatch. Please check iOS/Core/AppURLs.swift and iOS/scripts/update_embedded.sh")
     })
 
     it("does not fail with matching changes (both files changed)", async () => {
-        dm.danger.git.modified_files = ["DuckDuckGo/Assets.xcassets/SomeColor.colorset/Contents.json", "scripts/update_embedded.sh", "Core/AppURLs.swift"]
+        dm.danger.git.modified_files = ["iOS/DuckDuckGo/Assets.xcassets/SomeColor.colorset/Contents.json", "iOS/scripts/update_embedded.sh", "iOS/Core/AppURLs.swift"]
         var updateEmbeddedContent = "performUpdate 'https://staticcdn.duckduckgo.com/trackerblocking/v6/current/ios-tds.json' \"${base_dir}/Core/AppTrackerDataSetProvider.swift\" \"${base_dir}/Core/trackerData.json\\r\n";
         updateEmbeddedContent += "performUpdate 'https://staticcdn.duckduckgo.com/trackerblocking/config/v3/ios-config.json' \"${base_dir}/Core/AppPrivacyConfigurationDataProvider.swift\" \"${base_dir}/Core/ios-config.json\"";
 
@@ -112,7 +112,7 @@ describe("Tracker Blocking URL checks on iOS", () => {
     })
 
     it("fails with not matching regex", async () => {
-        dm.danger.git.modified_files = ["DuckDuckGo/Assets.xcassets/SomeColor.colorset/Contents.json", "scripts/update_embedded.sh", "Core/AppURLs.swift"]
+        dm.danger.git.modified_files = ["iOS/DuckDuckGo/Assets.xcassets/SomeColor.colorset/Contents.json", "iOS/scripts/update_embedded.sh", "iOS/Core/AppURLs.swift"]
         var updateEmbeddedContent = "performUpdate2 'https://staticcdn.duckduckgo.com/trackerblocking/v6/current/ios-tds.json' \"${base_dir}/Core/AppTrackerDataSetProvider.swift\" \"${base_dir}/Core/trackerData.json\\r\n";
         updateEmbeddedContent += "performUpdate 'https://staticcdn.duckduckgo.com/trackerblocking/config/v3/ios-config.json' \"${base_dir}/Core/AppPrivacyConfigurationDataProvider.swift\" \"${base_dir}/Core/ios-config.json\"";
 
@@ -123,7 +123,7 @@ describe("Tracker Blocking URL checks on iOS", () => {
 
         await embeddedFilesURLMismatch()
 
-        expect(dm.fail).toHaveBeenCalledWith("Content Tracker URL mismatch. Please check Core/AppURLs.swift and scripts/update_embedded.sh")
+        expect(dm.fail).toHaveBeenCalledWith("Content Tracker URL mismatch. Please check iOS/Core/AppURLs.swift and iOS/scripts/update_embedded.sh")
     })
 
 })
@@ -131,15 +131,14 @@ describe("Tracker Blocking URL checks on iOS", () => {
 describe("Tracker Blocking URL checks on macOS", () => {
     it("does not fail with no changes to relevant files", async () => {
         dm.danger.git.modified_files = []
-        dm.danger.github.thisPR.repo = "macos-browser"
+        dm.danger.github.thisPR.repo = "apple-browsers"
         await embeddedFilesURLMismatch()
 
         expect(dm.fail).not.toHaveBeenCalled()
     })
 
     it("does not fail with unrelevant changes to relevant files", async () => {
-        dm.danger.github.thisPR.repo = "macos-browser"
-        dm.danger.git.modified_files = ["DuckDuckGo/AppDelegate/CopyHandler.swift", "DuckDuckGo/AppDelegate/AppConfigurationURLProvider.swift"]
+        dm.danger.git.modified_files = ["macOS/DuckDuckGo/AppDelegate/CopyHandler.swift", "macOS/DuckDuckGo/AppDelegate/AppConfigurationURLProvider.swift"]
         var updateEmbeddedContent = "TDS_URL=\"https://staticcdn.duckduckgo.com/trackerblocking/v5/current/macos-tds.json\"\r\n";
         updateEmbeddedContent += "CONFIG_URL=\"https://staticcdn.duckduckgo.com/trackerblocking/config/v3/macos-config.json\"";
 
@@ -160,8 +159,7 @@ describe("Tracker Blocking URL checks on macOS", () => {
     })
 
     it("fails with mismatching changes (only AppConfigurationURLProvider.swift changed)", async () => {
-        dm.danger.github.thisPR.repo = "macos-browser"
-        dm.danger.git.modified_files = ["DuckDuckGo/AppDelegate/CopyHandler.swift", "DuckDuckGo/AppDelegate/AppConfigurationURLProvider.swift"]
+        dm.danger.git.modified_files = ["macOS/DuckDuckGo/AppDelegate/CopyHandler.swift", "macOS/DuckDuckGo/AppDelegate/AppConfigurationURLProvider.swift"]
         var updateEmbeddedContent = "TDS_URL=\"https://staticcdn.duckduckgo.com/trackerblocking/v5/current/macos-tds.json\"\r\n";
         updateEmbeddedContent += "CONFIG_URL=\"https://staticcdn.duckduckgo.com/trackerblocking/config/v3/macos-config.json\"";
 
@@ -178,12 +176,11 @@ describe("Tracker Blocking URL checks on macOS", () => {
 
         await embeddedFilesURLMismatch()
 
-        expect(dm.fail).toHaveBeenCalledWith("Content Tracker URL mismatch. Please check DuckDuckGo/AppDelegate/AppConfigurationURLProvider.swift and scripts/update_embedded.sh")
+        expect(dm.fail).toHaveBeenCalledWith("Content Tracker URL mismatch. Please check macOS/DuckDuckGo/AppDelegate/AppConfigurationURLProvider.swift and macOS/scripts/update_embedded.sh")
     })
 
     it("fails with mismatching changes (only update_embedded.sh changed)", async () => {
-        dm.danger.github.thisPR.repo = "macos-browser"
-        dm.danger.git.modified_files = ["DuckDuckGo/AppDelegate/CopyHandler.swift", "scripts/update_embedded.sh"]
+        dm.danger.git.modified_files = ["macOS/DuckDuckGo/AppDelegate/CopyHandler.swift", "macOS/scripts/update_embedded.sh"]
         var updateEmbeddedContent = "TDS_URL=\"https://staticcdn.duckduckgo.com/trackerblocking/v6/current/macos-tds.json\"\r\n";
         updateEmbeddedContent += "CONFIG_URL=\"https://staticcdn.duckduckgo.com/trackerblocking/config/v3/macos-config.json\"";
 
@@ -200,12 +197,11 @@ describe("Tracker Blocking URL checks on macOS", () => {
 
         await embeddedFilesURLMismatch()
 
-        expect(dm.fail).toHaveBeenCalledWith("Content Tracker URL mismatch. Please check DuckDuckGo/AppDelegate/AppConfigurationURLProvider.swift and scripts/update_embedded.sh")
+        expect(dm.fail).toHaveBeenCalledWith("Content Tracker URL mismatch. Please check macOS/DuckDuckGo/AppDelegate/AppConfigurationURLProvider.swift and macOS/scripts/update_embedded.sh")
     })
 
     it("fails with mismatching changes (both files changed)", async () => {
-        dm.danger.github.thisPR.repo = "macos-browser"
-        dm.danger.git.modified_files = ["DuckDuckGo/AppDelegate/CopyHandler.swift", "scripts/update_embedded.sh", "DuckDuckGo/AppDelegate/AppConfigurationURLProvider.swift"]
+        dm.danger.git.modified_files = ["macOS/DuckDuckGo/AppDelegate/CopyHandler.swift", "macOS/scripts/update_embedded.sh", "macOS/DuckDuckGo/AppDelegate/AppConfigurationURLProvider.swift"]
         var updateEmbeddedContent = "TDS_URL=\"https://staticcdn.duckduckgo.com/trackerblocking/v4/current/macos-tds.json\"\r\n";
         updateEmbeddedContent += "CONFIG_URL=\"https://staticcdn.duckduckgo.com/trackerblocking/config/v4/macos-config.json\"";
 
@@ -222,12 +218,11 @@ describe("Tracker Blocking URL checks on macOS", () => {
 
         await embeddedFilesURLMismatch()
 
-        expect(dm.fail).toHaveBeenCalledWith("Content Tracker URL mismatch. Please check DuckDuckGo/AppDelegate/AppConfigurationURLProvider.swift and scripts/update_embedded.sh")
+        expect(dm.fail).toHaveBeenCalledWith("Content Tracker URL mismatch. Please check macOS/DuckDuckGo/AppDelegate/AppConfigurationURLProvider.swift and macOS/scripts/update_embedded.sh")
     })
 
     it("does not fail with matching changes (both files changed)", async () => {
-        dm.danger.github.thisPR.repo = "macos-browser"
-        dm.danger.git.modified_files = ["DuckDuckGo/AppDelegate/CopyHandler.swift", "scripts/update_embedded.sh", "DuckDuckGo/AppDelegate/AppConfigurationURLProvider.swift"]
+        dm.danger.git.modified_files = ["macOS/DuckDuckGo/AppDelegate/CopyHandler.swift", "macOS/scripts/update_embedded.sh", "macOS/DuckDuckGo/AppDelegate/AppConfigurationURLProvider.swift"]
         var updateEmbeddedContent = "TDS_URL=\"https://staticcdn.duckduckgo.com/trackerblocking/v6/current/macos-tds.json\"\r\n";
         updateEmbeddedContent += "CONFIG_URL=\"https://staticcdn.duckduckgo.com/trackerblocking/config/v3/macos-config.json\"";
 
@@ -248,8 +243,7 @@ describe("Tracker Blocking URL checks on macOS", () => {
     })
 
     it("fails with not matching regex", async () => {
-        dm.danger.github.thisPR.repo = "macos-browser"
-        dm.danger.git.modified_files = ["DuckDuckGo/AppDelegate/CopyHandler.swift", "scripts/update_embedded.sh", "DuckDuckGo/AppDelegate/AppConfigurationURLProvider.swift"]
+        dm.danger.git.modified_files = ["macOS/DuckDuckGo/AppDelegate/CopyHandler.swift", "macOS/scripts/update_embedded.sh", "macOS/DuckDuckGo/AppDelegate/AppConfigurationURLProvider.swift"]
         var updateEmbeddedContent = "TDS_URL=\"https://staticcdn.duckduckgo.com/trackerblocking/v5/current/macos-tds.json\"\r\n";
         updateEmbeddedContent += "CONFIG_URL=\"https://staticcdn.duckduckgo.com/trackerblocking/config/v3/macos-config.json\"";
 
@@ -266,7 +260,7 @@ describe("Tracker Blocking URL checks on macOS", () => {
 
         await embeddedFilesURLMismatch()
 
-        expect(dm.fail).toHaveBeenCalledWith("Content Tracker URL mismatch. Please check DuckDuckGo/AppDelegate/AppConfigurationURLProvider.swift and scripts/update_embedded.sh")
+        expect(dm.fail).toHaveBeenCalledWith("Content Tracker URL mismatch. Please check macOS/DuckDuckGo/AppDelegate/AppConfigurationURLProvider.swift and macOS/scripts/update_embedded.sh")
     })
 
 })
