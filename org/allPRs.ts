@@ -194,7 +194,21 @@ export const embeddedFilesURLMismatch = async() => {
     await privacyConfigMismatch(modifiedFiles)
 }
 
+export const releaseAndHotfixBranchBSKChangeWarning = async () => {  
+    const branchName = danger.github.pr.head.ref;
+    if (!branchName.startsWith('release/') && !branchName.startsWith('hotfix/')) return;
 
+    const changedFiles = [...new Set([
+        ...danger.git.modified_files,
+        ...danger.git.created_files,
+        ...danger.git.deleted_files
+    ])];
+
+    const bskFiles = changedFiles.filter(file => file.startsWith('BrowserServicesKit'));
+    if (bskFiles.length === 0) return;
+
+    warn(`Please check whether the BSK changes on this branch need to be merged to the other platform's release/hotfix branch`);
+}
 
 // Default run
 export default async () => {
@@ -205,4 +219,5 @@ export default async () => {
     await licensedFonts()
     await newColors()
     await embeddedFilesURLMismatch()
-}   
+    await releaseAndHotfixBranchBSKChangeWarning()
+}
