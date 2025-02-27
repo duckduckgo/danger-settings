@@ -2,7 +2,7 @@ jest.mock("danger", () => jest.fn())
 import danger from 'danger'
 const dm = danger as any;
 
-import { xcodeprojConfiguration } from '../org/allPRs'
+import { xcodeprojConfiguration_macOS } from '../org/allPRs'
 
 beforeEach(() => {
     dm.addedLines = ""
@@ -14,7 +14,7 @@ beforeEach(() => {
                 return { added: dm.addedLines }
             },
             modified_files: [
-                "DuckDuckGo.xcodeproj/project.pbxproj"
+                "macOS/DuckDuckGo-macOS.xcodeproj/project.pbxproj"
             ]
         },
         github: {
@@ -23,7 +23,7 @@ beforeEach(() => {
                 deletions: 10
             },
             thisPR: {
-                repo: "macos-browser"
+                repo: "apple-browsers"
             }
         },
     }
@@ -33,7 +33,7 @@ describe("Xcode project file configuration checks", () => {
     it("does not fail with no changes to project file", async () => {
         dm.danger.git.modified_files = []
 
-        await xcodeprojConfiguration()
+        await xcodeprojConfiguration_macOS()
 
         expect(dm.fail).not.toHaveBeenCalled()
     })
@@ -41,13 +41,13 @@ describe("Xcode project file configuration checks", () => {
     it("does not fail with no diff in project file", async () => {
         dm.danger.git.diffForFile = async (_filename) => {}
 
-        await xcodeprojConfiguration()
+        await xcodeprojConfiguration_macOS()
 
         expect(dm.fail).not.toHaveBeenCalled()
     })
 
     it("does not fail with no additions", async () => {
-        await xcodeprojConfiguration()
+        await xcodeprojConfiguration_macOS()
 
         expect(dm.fail).not.toHaveBeenCalled()
     })
@@ -60,7 +60,7 @@ describe("Xcode project file configuration checks", () => {
 +				372C27BE297AD5C200C758EB /* Test.swift in Sources */,
         `
 
-        await xcodeprojConfiguration()
+        await xcodeprojConfiguration_macOS()
 
         expect(dm.fail).not.toHaveBeenCalled()
     })
@@ -71,7 +71,7 @@ describe("Xcode project file configuration checks", () => {
 +								kind = branch;
         `
 
-        await xcodeprojConfiguration()
+        await xcodeprojConfiguration_macOS()
 
         expect(dm.fail).not.toHaveBeenCalled()
     })
@@ -81,9 +81,9 @@ describe("Xcode project file configuration checks", () => {
 +				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
         `
 
-        await xcodeprojConfiguration()
+        await xcodeprojConfiguration_macOS()
         
-        expect(dm.fail).toHaveBeenCalledWith("No configuration is allowed inside Xcode project file - use xcconfig files instead.")
+        expect(dm.fail).toHaveBeenCalledWith("No configuration is allowed inside macOS Xcode project file - use xcconfig files instead.")
     })
 
     it("fails with added configuration with empty value", async () => {
@@ -91,9 +91,9 @@ describe("Xcode project file configuration checks", () => {
 +				CODE_SIGN_IDENTITY = ;
         `
 
-        await xcodeprojConfiguration()
+        await xcodeprojConfiguration_macOS()
         
-        expect(dm.fail).toHaveBeenCalledWith("No configuration is allowed inside Xcode project file - use xcconfig files instead.")
+        expect(dm.fail).toHaveBeenCalledWith("No configuration is allowed inside macOS Xcode project file - use xcconfig files instead.")
     })
 
     it("fails with added configuration with key containing digits", async () => {
@@ -101,9 +101,9 @@ describe("Xcode project file configuration checks", () => {
 +				GCC_WARN_64_TO_32_BIT_CONVERSION = YES_ERROR;
         `
 
-        await xcodeprojConfiguration()
+        await xcodeprojConfiguration_macOS()
         
-        expect(dm.fail).toHaveBeenCalledWith("No configuration is allowed inside Xcode project file - use xcconfig files instead.")
+        expect(dm.fail).toHaveBeenCalledWith("No configuration is allowed inside macOS Xcode project file - use xcconfig files instead.")
     })
 
     it("does not fail with added cofiguration in non-macos app repo", async () => {
@@ -112,10 +112,8 @@ describe("Xcode project file configuration checks", () => {
 +				GCC_WARN_64_TO_32_BIT_CONVERSION = YES_ERROR;
         `
 
-        await xcodeprojConfiguration()
+        await xcodeprojConfiguration_macOS()
 
         expect(dm.fail).not.toHaveBeenCalled()
     })
 })
-
-
