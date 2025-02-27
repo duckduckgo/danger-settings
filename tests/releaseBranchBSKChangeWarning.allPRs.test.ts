@@ -2,7 +2,7 @@ jest.mock("danger", () => jest.fn())
 import danger from 'danger'
 const dm = danger as any;
 
-import { releaseBranchBSKChangeWarning } from '../org/allPRs'
+import { releaseAndHotfixBranchBSKChangeWarning } from '../org/allPRs'
 
 beforeEach(() => {
     dm.addedLines = ""
@@ -33,10 +33,10 @@ beforeEach(() => {
 })
 
 describe("releaseBranchBSKChangeWarning", () => {
-    it("does not warn if the branch name does not start with 'release/'", async () => {
+    it("does not warn if the branch name does not start with 'release/' or 'hotfix/'", async () => {
         dm.danger.github.pr.head.ref = "feature/unrelated"
 
-        await releaseBranchBSKChangeWarning()
+        await releaseAndHotfixBranchBSKChangeWarning()
 
         expect(dm.warn).not.toHaveBeenCalled()
     })
@@ -45,7 +45,7 @@ describe("releaseBranchBSKChangeWarning", () => {
         dm.danger.github.pr.head.ref = "release/ios/7.123.0"
         dm.danger.git.modified_files = ["some/other/file.swift"]
 
-        await releaseBranchBSKChangeWarning()
+        await releaseAndHotfixBranchBSKChangeWarning()
 
         expect(dm.warn).not.toHaveBeenCalled()
     })
@@ -54,26 +54,53 @@ describe("releaseBranchBSKChangeWarning", () => {
         dm.danger.github.pr.head.ref = "release/ios/7.123.0"
         dm.danger.git.modified_files = ["BrowserServicesKit/SomeFile.swift"]
 
-        await releaseBranchBSKChangeWarning()
+        await releaseAndHotfixBranchBSKChangeWarning()
 
-        expect(dm.warn).toHaveBeenCalledWith("Please check whether the BSK changes on this release branch need to be merged to the other platform's release branch")
+        expect(dm.warn).toHaveBeenCalledWith("Please check whether the BSK changes on this branch need to be merged to the other platform's release/hotfix branch")
     })
 
     it("warns if the branch name starts with 'release/' and files in 'BrowserServicesKit' are created", async () => {
-        dm.danger.github.pr.head.ref = "release/1.0.0"
+        dm.danger.github.pr.head.ref = "release/ios/7.123.0"
         dm.danger.git.created_files = ["BrowserServicesKit/SomeFile.swift"]
 
-        await releaseBranchBSKChangeWarning()
+        await releaseAndHotfixBranchBSKChangeWarning()
 
-        expect(dm.warn).toHaveBeenCalledWith("Please check whether the BSK changes on this release branch need to be merged to the other platform's release branch")
+        expect(dm.warn).toHaveBeenCalledWith("Please check whether the BSK changes on this branch need to be merged to the other platform's release/hotfix branch")
     })
 
     it("warns if the branch name starts with 'release/' and files in 'BrowserServicesKit' are deleted", async () => {
-        dm.danger.github.pr.head.ref = "release/1.0.0"
+        dm.danger.github.pr.head.ref = "release/ios/7.123.0"
         dm.danger.git.deleted_files = ["BrowserServicesKit/SomeFile.swift"]
 
-        await releaseBranchBSKChangeWarning()
+        await releaseAndHotfixBranchBSKChangeWarning()
         
-        expect(dm.warn).toHaveBeenCalledWith("Please check whether the BSK changes on this release branch need to be merged to the other platform's release branch")
+        expect(dm.warn).toHaveBeenCalledWith("Please check whether the BSK changes on this branch need to be merged to the other platform's release/hotfix branch")
+    })
+
+    it("warns if the branch name starts with 'hotfix/' and files in 'BrowserServicesKit' are modified", async () => {
+        dm.danger.github.pr.head.ref = "hotfix/ios/7.123.1"
+        dm.danger.git.modified_files = ["BrowserServicesKit/SomeFile.swift"]
+
+        await releaseAndHotfixBranchBSKChangeWarning()
+
+        expect(dm.warn).toHaveBeenCalledWith("Please check whether the BSK changes on this branch need to be merged to the other platform's release/hotfix branch")
+    })
+
+    it("warns if the branch name starts with 'hotfix/' and files in 'BrowserServicesKit' are created", async () => {
+        dm.danger.github.pr.head.ref = "hotfix/ios/7.123.1"
+        dm.danger.git.created_files = ["BrowserServicesKit/SomeFile.swift"]
+
+        await releaseAndHotfixBranchBSKChangeWarning()
+
+        expect(dm.warn).toHaveBeenCalledWith("Please check whether the BSK changes on this branch need to be merged to the other platform's release/hotfix branch")
+    })
+
+    it("warns if the branch name starts with 'hotfix/' and files in 'BrowserServicesKit' are deleted", async () => {
+        dm.danger.github.pr.head.ref = "hotfix/ios/7.123.1"
+        dm.danger.git.deleted_files = ["BrowserServicesKit/SomeFile.swift"]
+
+        await releaseAndHotfixBranchBSKChangeWarning()
+        
+        expect(dm.warn).toHaveBeenCalledWith("Please check whether the BSK changes on this branch need to be merged to the other platform's release/hotfix branch")
     })
 })
