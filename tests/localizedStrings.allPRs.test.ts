@@ -84,7 +84,7 @@ describe("Localized Strings checks", () => {
 
         await localizedStrings()
         
-        expect(dm.message).toHaveBeenCalledWith("You seem to be updating localized strings. Make sure that you request translations and include translated strings before you ship your change. See [Localization Guidelines](https://app.asana.com/0/0/1185863667140706/f) for more information.")
+        expect(dm.message).toHaveBeenCalledWith("You seem to be updating localized strings. Make sure that you request translations and include translated strings before you ship your change. See [iOS](https://app.asana.com/0/0/1185863667140706/f) and [macOS](https://app.asana.com/0/0/1206727265537758/f) localization guidelines for more information.")
     })
 
     it("messages with added code that contains NSLocalizedString call, including macOS Localization guidelines URL when run for macos-browser repo", async () => {
@@ -95,7 +95,7 @@ describe("Localized Strings checks", () => {
 
         await localizedStrings()
         
-        expect(dm.message).toHaveBeenCalledWith("You seem to be updating localized strings. Make sure that you request translations and include translated strings before you ship your change. See [Localization Guidelines](https://app.asana.com/0/0/1206727265537758/f) for more information.")
+        expect(dm.message).toHaveBeenCalledWith("You seem to be updating localized strings. Make sure that you request translations and include translated strings before you ship your change. See [iOS](https://app.asana.com/0/0/1185863667140706/f) and [macOS](https://app.asana.com/0/0/1206727265537758/f) localization guidelines for more information.")
     })
 
     it("messages with UserText.swift-style added code, including iOS Localization guidelines URL when run for iOS repo", async () => {
@@ -106,7 +106,7 @@ describe("Localized Strings checks", () => {
 
         await localizedStrings()
 
-        expect(dm.message).toHaveBeenCalledWith("You seem to be updating localized strings. Make sure that you request translations and include translated strings before you ship your change. See [Localization Guidelines](https://app.asana.com/0/0/1185863667140706/f) for more information.")
+        expect(dm.message).toHaveBeenCalledWith("You seem to be updating localized strings. Make sure that you request translations and include translated strings before you ship your change. See [iOS](https://app.asana.com/0/0/1185863667140706/f) and [macOS](https://app.asana.com/0/0/1206727265537758/f) localization guidelines for more information.")
     })
 
     it("messages with UserText.swift-style added code, including macOS Localization guidelines URL when run for macos-browser repo", async () => {
@@ -117,6 +117,6 @@ describe("Localized Strings checks", () => {
 
         await localizedStrings()
 
-        expect(dm.message).toHaveBeenCalledWith("You seem to be updating localized strings. Make sure that you request translations and include translated strings before you ship your change. See [Localization Guidelines](https://app.asana.com/0/0/1206727265537758/f) for more information.")
+        expect(dm.message).toHaveBeenCalledWith("You seem to be updating localized strings. Make sure that you request translations and include translated strings before you ship your change. See [iOS](https://app.asana.com/0/0/1185863667140706/f) and [macOS](https://app.asana.com/0/0/1206727265537758/f) localization guidelines for more information.")
     })
 })

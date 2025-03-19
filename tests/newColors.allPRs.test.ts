@@ -10,13 +10,13 @@ beforeEach(() => {
 
     dm.danger = {
         git: {
-            modified_files: ["Core/AppConfigurationURLProvider.swift"],
+            modified_files: ["iOS/Core/AppConfigurationURLProvider.swift"],
             created_files: [],
             deleted_files: [],
         },
         github: {
             thisPR: {
-                repo: "iOS"
+                repo: "apple-browsers"
             }
         },
     };
@@ -32,7 +32,7 @@ describe("New colors checks", () => {
     })
 
     it("does not fail with changes to colorset files", async () => {
-        dm.danger.git.modified_files = ["DuckDuckGo/Assets.xcassets/SomeColor.colorset/Contents.json", "Core/AppConfigurationURLProvider.swift"]
+        dm.danger.git.modified_files = ["iOS/DuckDuckGo/Assets.xcassets/SomeColor.colorset/Contents.json", "iOS/Core/AppConfigurationURLProvider.swift"]
 
         await newColors()
 
@@ -40,16 +40,15 @@ describe("New colors checks", () => {
     })
 
     it("fails with new colorset file", async () => {
-        dm.danger.git.created_files = ["DuckDuckGo/Assets.xcassets/SomeColor.colorset/Contents.json", "Core/AppConfigurationURLProvider.swift"]
+        dm.danger.git.created_files = ["iOS/DuckDuckGo/Assets.xcassets/SomeColor.colorset/Contents.json", "iOS/Core/AppConfigurationURLProvider.swift"]
 
         await newColors()
 
         expect(dm.fail).toHaveBeenCalledWith("DesignResourcesKit: No new colors should be added to this app.")
     })
 
-    it("does not fail in others repos than iOS", async () => {
-        dm.danger.github.thisPR.repo = "macos-browser"
-        dm.danger.git.created_files = ["DuckDuckGo/Assets.xcassets/SomeColor.colorset/Contents.json"]
+    it("does not fail in the macOS client", async () => {
+        dm.danger.git.created_files = ["macOS/DuckDuckGo/Assets.xcassets/SomeColor.colorset/Contents.json"]
 
         await newColors()
 
