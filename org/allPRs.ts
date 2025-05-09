@@ -77,6 +77,25 @@ export const xcodeprojConfiguration_macOS = async () => {
     }
 }
 
+export const singletons = async () => {
+    // Get all modified and added Swift files (unique)
+    const changedFiles = [...new Set([
+        ...danger.git.modified_files,
+        ...danger.git.created_files
+    ])].filter(file => file.endsWith(".swift"));
+
+    // If no files to check after filtering, exit early
+    if (changedFiles.length === 0) return;
+
+    for (const file of changedFiles) {
+        let diff = await danger.git.diffForFile(file);
+        let addedLines = diff?.added.split(/\n/);
+        if (addedLines?.find(value => /^\+(?!\s*\/\/)\s*(?:public|private|internal)?\s*static\s*(?:let|var)\s*shared\s*=.*$/.test(value))) {
+            fail("New singleton definitions are not allowed.");
+        }
+    }
+}
+
 export const localizedStrings = async () => {
     for (let file of danger.git.modified_files) {
         let diff = await danger.git.diffForFile(file);
@@ -210,6 +229,7 @@ export default async () => {
     await prSize()
     await internalLink()
     await xcodeprojConfiguration_macOS()
+    await singletons()
     await localizedStrings()
     await licensedFonts()
     await newColors()
