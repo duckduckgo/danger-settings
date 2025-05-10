@@ -85,7 +85,6 @@ export const singletons = async () => {
 
     // If no files to check after filtering, exit early
     if (changedFiles.length === 0) {
-        fail(`No Swift files changed. Modified files: ${danger.git.modified_files}`);
         return;
     }
 
@@ -96,7 +95,7 @@ export const singletons = async () => {
         if (foundSingleton) {
             // trim leading + and whitespace
             const cleanLine = foundSingleton.replace(/^\+\s*/, '').trim();
-            fail(`New singleton definitions are not allowed. Found: \`${cleanLine}\``);
+            fail(`New singleton definitions are not allowed. Found this line:\n\`\`\`swift\n${cleanLine}\n\`\`\``);
             return;
         }
     }
