@@ -92,8 +92,11 @@ export const singletons = async () => {
     for (const file of changedFiles) {
         let diff = await danger.git.diffForFile(file);
         let addedLines = diff?.added.split(/\n/);
-        if (addedLines?.find(value => /^\+(?!\s*\/\/)\s*(?:public|private|internal)?\s*static\s*(?:let|var)\s*shared(?:\s*:.+)?\s*=.*$/.test(value))) {
-            fail("New singleton definitions are not allowed.");
+        const foundSingleton = addedLines?.find(value => /^\+(?!\s*\/\/)\s*(?:public|private|internal)?\s*static\s*(?:let|var)\s*shared(?:\s*:.+)?\s*=.*$/.test(value));
+        if (foundSingleton) {
+            // trim leading + and whitespace
+            const cleanLine = foundSingleton.replace(/^\+\s*/, '').trim();
+            fail(`New singleton definitions are not allowed. Found: \`${cleanLine}\``);
             return;
         }
     }
