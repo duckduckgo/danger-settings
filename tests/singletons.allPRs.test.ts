@@ -85,6 +85,15 @@ describe("Singletons checks", () => {
         expect(dm.fail).toHaveBeenCalled()
     })
 
+    it("fails with singleton additons with type specifier", async () => {
+        dm.addedLines = `
++		static let shared: FaviconManager = .init()
+        `
+
+        await singletons()
+        expect(dm.fail).toHaveBeenCalled()
+    })
+
     it("fails with private singleton additons", async () => {
         dm.addedLines = `
 +		private static let shared = FaviconManager()

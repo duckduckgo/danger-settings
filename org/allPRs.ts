@@ -5,10 +5,10 @@ export const prSize = async () => {
     const excludedExtensions = ['.xcodeproj', '.xcassets', '.xcworkspace'];
 
     // Get all modified and added files (unique)
-    const changedFiles = [...new Set([
+    const changedFiles = [
         ...danger.git.modified_files,
         ...danger.git.created_files
-    ])];
+    ];
 
     // Filter out excluded file types
     const filesToCheck = changedFiles.filter(file => 
@@ -78,20 +78,23 @@ export const xcodeprojConfiguration_macOS = async () => {
 }
 
 export const singletons = async () => {
-    // Get all modified and added Swift files (unique)
-    const changedFiles = [...new Set([
+    const changedFiles = [
         ...danger.git.modified_files,
         ...danger.git.created_files
-    ])].filter(file => file.endsWith(".swift"));
+    ].filter(file => file.endsWith(".swift"));
 
     // If no files to check after filtering, exit early
-    if (changedFiles.length === 0) return;
+    if (changedFiles.length === 0) {
+        fail(`No Swift files changed. Modified files: ${danger.git.modified_files}`);
+        return;
+    }
 
     for (const file of changedFiles) {
         let diff = await danger.git.diffForFile(file);
         let addedLines = diff?.added.split(/\n/);
-        if (addedLines?.find(value => /^\+(?!\s*\/\/)\s*(?:public|private|internal)?\s*static\s*(?:let|var)\s*shared\s*=.*$/.test(value))) {
+        if (addedLines?.find(value => /^\+(?!\s*\/\/)\s*(?:public|private|internal)?\s*static\s*(?:let|var)\s*shared(?:\s*:.+)?\s*=.*$/.test(value))) {
             fail("New singleton definitions are not allowed.");
+            return;
         }
     }
 }
@@ -212,11 +215,11 @@ export const releaseAndHotfixBranchBSKChangeWarning = async () => {
     const branchName = danger.github.pr.head.ref;
     if (!branchName.startsWith('release/') && !branchName.startsWith('hotfix/')) return;
 
-    const changedFiles = [...new Set([
+    const changedFiles = [
         ...danger.git.modified_files,
         ...danger.git.created_files,
         ...danger.git.deleted_files
-    ])];
+    ];
 
     const bskFiles = changedFiles.filter(file => file.startsWith('BrowserServicesKit'));
     if (bskFiles.length === 0) return;
