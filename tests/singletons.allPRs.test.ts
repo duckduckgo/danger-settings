@@ -58,7 +58,7 @@ describe("Singletons checks", () => {
         expect(dm.fail).not.toHaveBeenCalled()
     })
 
-    it("does not fail with singleton usage additons", async () => {
+    it("does not fail with singleton usage additions", async () => {
         dm.addedLines = `
 +		let favicon = FaviconManager.shared.favicon(for: url)
         `
@@ -67,7 +67,7 @@ describe("Singletons checks", () => {
         expect(dm.fail).not.toHaveBeenCalled()
     })
 
-    it("does not fail with commented out singleton additons", async () => {
+    it("does not fail with commented out singleton additions", async () => {
         dm.addedLines = `
 +		// static let shared = FaviconManager()
         `
@@ -76,7 +76,7 @@ describe("Singletons checks", () => {
         expect(dm.fail).not.toHaveBeenCalled()
     })
 
-    it("fails with singleton additons", async () => {
+    it("fails with singleton additions", async () => {
         dm.addedLines = `
 +		static let shared = FaviconManager()
         `
@@ -85,7 +85,7 @@ describe("Singletons checks", () => {
         expect(dm.fail).toHaveBeenCalled()
     })
 
-    it("fails with singleton additons with type specifier", async () => {
+    it("fails with singleton additions with type specifier", async () => {
         dm.addedLines = `
 +		static let shared: FaviconManager = .init()
         `
@@ -94,7 +94,7 @@ describe("Singletons checks", () => {
         expect(dm.fail).toHaveBeenCalled()
     })
 
-    it("fails with private singleton additons", async () => {
+    it("fails with private singleton additions", async () => {
         dm.addedLines = `
 +		private static let shared = FaviconManager()
         `
@@ -103,7 +103,7 @@ describe("Singletons checks", () => {
         expect(dm.fail).toHaveBeenCalled()
     })
 
-    it("fails with internal singleton additons", async () => {
+    it("fails with internal singleton additions", async () => {
         dm.addedLines = `
 +		internal static let shared = FaviconManager()
         `
@@ -112,7 +112,7 @@ describe("Singletons checks", () => {
         expect(dm.fail).toHaveBeenCalled()
     })
 
-    it("fails with public singleton additons", async () => {
+    it("fails with public singleton additions", async () => {
         dm.addedLines = `
 +		public static let shared = FaviconManager()
         `
@@ -121,7 +121,7 @@ describe("Singletons checks", () => {
         expect(dm.fail).toHaveBeenCalled()
     })
 
-    it("fails with var singleton additons", async () => {
+    it("fails with var singleton additions", async () => {
         dm.addedLines = `
 +		static var shared = FaviconManager()
         `
@@ -130,7 +130,7 @@ describe("Singletons checks", () => {
         expect(dm.fail).toHaveBeenCalled()
     })
 
-    it("fails with private var singleton additons", async () => {
+    it("fails with private var singleton additions", async () => {
         dm.addedLines = `
 +		private static var shared = FaviconManager()
         `
@@ -139,7 +139,7 @@ describe("Singletons checks", () => {
         expect(dm.fail).toHaveBeenCalled()
     })
 
-    it("fails with internal var singleton additons", async () => {
+    it("fails with internal var singleton additions", async () => {
         dm.addedLines = `
 +		internal static var shared = FaviconManager()
         `
@@ -148,7 +148,7 @@ describe("Singletons checks", () => {
         expect(dm.fail).toHaveBeenCalled()
     })
 
-    it("fails with public var singleton additons", async () => {
+    it("fails with public var singleton additions", async () => {
         dm.addedLines = `
 +		public static var shared = FaviconManager()
         `
