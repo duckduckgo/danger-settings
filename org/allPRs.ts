@@ -83,11 +83,6 @@ export const singletons = async () => {
         ...danger.git.created_files
     ].filter(file => file.endsWith(".swift"));
 
-    // If no files to check after filtering, exit early
-    if (changedFiles.length === 0) {
-        return;
-    }
-
     for (const file of changedFiles) {
         let diff = await danger.git.diffForFile(file);
         let addedLines = diff?.added.split(/\n/);
@@ -96,6 +91,25 @@ export const singletons = async () => {
             // trim leading + and whitespace
             const cleanLine = foundSingleton.replace(/^\+\s*/, '').trim();
             fail(`New singleton definitions are not allowed. Found this line:\n\`\`\`swift\n${cleanLine}\n\`\`\``);
+            return;
+        }
+    }
+}
+
+export const userDefaultsWrapper = async () => {
+    const changedFiles = [
+        ...danger.git.modified_files,
+        ...danger.git.created_files
+    ].filter(file => file.endsWith(".swift"));
+
+    for (const file of changedFiles) {
+        let diff = await danger.git.diffForFile(file);
+        let addedLines = diff?.added.split(/\n/);
+        const foundOccurrence = addedLines?.find(value => /^\+(?!\s*\/\/)\s*@UserDefaultsWrapper(?:\((?:.*\))?)?$/.test(value));
+        if (foundOccurrence) {
+            // trim leading + and whitespace
+            const cleanLine = foundOccurrence.replace(/^\+\s*/, '').trim();
+            fail(`New \`@UserDefaultsWrapper\` definitions are not allowed. Please use \`KeyValueStoring\` protocl instead.\nFound this line:\n\`\`\`swift\n${cleanLine}\n\`\`\``);
             return;
         }
     }
@@ -235,6 +249,7 @@ export default async () => {
     await internalLink()
     await xcodeprojConfiguration_macOS()
     await singletons()
+    await userDefaultsWrapper()
     await localizedStrings()
     await licensedFonts()
     await newColors()
