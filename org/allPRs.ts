@@ -90,7 +90,10 @@ export const xcodeprojObjectVersion_macOS = async () => {
         // * a number
         // * a semicolon
         //
-        // We're capturing the number and if it's different than 60 (the required objectVersion), we fail the check.
+        // We're capturing the number and if it's greater than 60 (the max supported objectVersion), we fail the check.
+        //
+        // NOTE: We should remove this check once we're able to use buildable folders in the macOS Xcode project file.
+        //
         const objectVersionMatch = addedLines?.find(value => {
             const match = value.match(/^\+\t+objectVersion = ([0-9]+);$/);
             console.log(value, match);
