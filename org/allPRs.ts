@@ -257,6 +257,23 @@ export const releaseAndHotfixBranchBSKChangeWarning = async () => {
     warn(`Please check whether the BSK changes on this branch need to be merged to the other platform's release/hotfix branch`);
 }
 
+export const prTitle = async () => {
+    // Run only for Apple Browsers repo
+    if (danger.github.thisPR.repo != "apple-browsers") return;
+    // Run only for PRs targeting main, release and hotfix branches
+    const targetBranch = danger.github.pr.base.ref;
+    if (targetBranch != "main" && !targetBranch.startsWith("release/") && !targetBranch.startsWith("hotfix/")) return;
+
+    // Prefixes allowed for the PR title. 
+    // For more info see: https://app.asana.com/1/137249556945/project/1200194497630846/task/1211713532926629?focus=true
+    const prTitlePrefixes = ['[iOS]', '[macOS]', '[iOS/macOS]', '[CI]'];
+    const prTitle = danger.github.pr.title;
+
+    if (!prTitlePrefixes.some(value => prTitle.startsWith(value))) {
+        fail("PR title must start with one of the following prefixes: " + prTitlePrefixes.join(", "));
+    }
+}
+
 // Default run
 export default async () => {
     await prSize()
@@ -269,4 +286,5 @@ export default async () => {
     await newColors()
     await embeddedFilesURLMismatch()
     await releaseAndHotfixBranchBSKChangeWarning()
+    await prTitle()
 }
