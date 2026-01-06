@@ -129,6 +129,26 @@ export const singletons = async () => {
     }
 }
 
+export const remoteReleasableFeatureWarning = async () => {
+    const changedFiles = [
+        ...danger.git.modified_files,
+        ...danger.git.created_files
+    ].filter(file => file.endsWith(".swift"));
+
+    if (changedFiles.length === 0) {
+        return;
+    }
+
+    for (const file of changedFiles) {
+        let diff = await danger.git.diffForFile(file);
+        let addedLines = diff?.added.split(/\n/);
+        if (addedLines?.find(value => value.startsWith("+") && value.includes(".remoteReleasable(.feature"))) {
+            warn("⚠️ Parent feature flags do not support rollouts - if you wish to use a rollout for your feature, please use a subfeature flag.");
+            return;
+        }
+    }
+}
+
 export const localizedStrings = async () => {
     for (let file of danger.git.modified_files) {
         let diff = await danger.git.diffForFile(file);
@@ -264,6 +284,7 @@ export default async () => {
     await xcodeprojConfiguration_macOS()
     await xcodeprojObjectVersion_macOS()
     await singletons()
+    await remoteReleasableFeatureWarning()
     await localizedStrings()
     await licensedFonts()
     await newColors()
