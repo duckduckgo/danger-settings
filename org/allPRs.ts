@@ -137,7 +137,7 @@ export const userDefaultsWrapper = async () => {
         if (foundOccurrence) {
             // trim leading + and whitespace
             const cleanLine = foundOccurrence.replace(/^\+\s*/, '').trim();
-            fail(`New \`@UserDefaultsWrapper\` definitions are not allowed. Please use \`KeyValueStoring\` protocol instead.\nFound this line:\n\`\`\`swift\n${cleanLine}\n\`\`\``);
+            fail(`New \`@UserDefaultsWrapper\` definitions are not allowed. Please use \`KeyedStoring\` protocol instead.\nFound this line:\n\`\`\`swift\n${cleanLine}\n\`\`\``);
             return;
         }
     }
