@@ -149,10 +149,6 @@ export const remoteReleasableFeatureWarning = async () => {
         ...danger.git.created_files
     ].filter(file => file.endsWith(".swift"));
 
-    if (changedFiles.length === 0) {
-        return;
-    }
-
     for (const file of changedFiles) {
         let diff = await danger.git.diffForFile(file);
         let addedLines = diff?.added.split(/\n/);
