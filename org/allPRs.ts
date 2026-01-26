@@ -1,6 +1,6 @@
 import {fail, warn, message, danger} from "danger"
 
-export const prSize = async () => {  
+export const prSize = async () => {
     // Define file types to exclude for iOS and macOS projects
     const excludedExtensions = ['.xcodeproj', '.xcassets', '.xcworkspace'];
 
@@ -11,7 +11,7 @@ export const prSize = async () => {
     ];
 
     // Filter out excluded file types
-    const filesToCheck = changedFiles.filter(file => 
+    const filesToCheck = changedFiles.filter(file =>
         !excludedExtensions.some(ext => file.includes(ext))
     );
 
@@ -77,6 +77,34 @@ export const xcodeprojConfiguration_macOS = async () => {
     }
 }
 
+export const xcodeprojObjectVersion_macOS = async () => {
+    const projectFile = "macOS/DuckDuckGo-macOS.xcodeproj/project.pbxproj";
+    if (danger.git.modified_files.includes(projectFile)) {
+        let diff = await danger.git.diffForFile(projectFile);
+        let addedLines = diff?.added.split(/\n/);
+        // The regex is equal to:
+        // * plus sign
+        // * 1 or more tabulation keys
+        // * `objectVersion` identifier (key)
+        // * a space, an equality sign and a space
+        // * a number
+        // * a semicolon
+        //
+        // We're capturing the number and if it's greater than 60 (the max supported objectVersion), we fail the check.
+        //
+        // NOTE: We should remove this check once we're able to use buildable folders in the macOS Xcode project file.
+        //
+        const objectVersionMatch = addedLines?.find(value => {
+            const match = value.match(/^\+\t+objectVersion = ([0-9]+);$/);
+            console.log(value, match);
+            return match && parseInt(match[1]) > 60;
+        });
+        if (objectVersionMatch) {
+            fail("macOS Xcode project file needs to keep objectVersion at 60 - you may have added a buildable folder reference to the project file. Please replace it with a file group.");
+        }
+    }
+}
+
 export const singletons = async () => {
     const changedFiles = [
         ...danger.git.modified_files,
@@ -115,6 +143,26 @@ export const userDefaultsWrapper = async () => {
     }
 }
 
+export const remoteReleasableFeatureWarning = async () => {
+    const changedFiles = [
+        ...danger.git.modified_files,
+        ...danger.git.created_files
+    ].filter(file => file.endsWith(".swift"));
+
+    if (changedFiles.length === 0) {
+        return;
+    }
+
+    for (const file of changedFiles) {
+        let diff = await danger.git.diffForFile(file);
+        let addedLines = diff?.added.split(/\n/);
+        if (addedLines?.find(value => value.startsWith("+") && value.includes(".remoteReleasable(.feature"))) {
+            warn("⚠️ Parent feature flags do not support rollouts - if you wish to use a rollout for your feature, please use a subfeature flag.");
+            return;
+        }
+    }
+}
+
 export const localizedStrings = async () => {
     for (let file of danger.git.modified_files) {
         let diff = await danger.git.diffForFile(file);
@@ -133,7 +181,7 @@ export const localizedStrings = async () => {
 
 export const licensedFonts = async () => {
     // Fail if licensed fonts are committed
-    const modifiedFiles = danger.git.modified_files; 
+    const modifiedFiles = danger.git.modified_files;
     if (modifiedFiles.some(path => path.match(/fonts\/licensed\/.*\.otf/))) {
         fail("Licensed fonts shouldn't be commited to this repository.")
     }
@@ -142,7 +190,7 @@ export const licensedFonts = async () => {
 export const newColors = async () => {
     // Fail if new colors are added to the app (DesignResourcesKit)
     if (danger.github.thisPR.repo == "apple-browsers") {
-        const createdFiles = danger.git.created_files; 
+        const createdFiles = danger.git.created_files;
         if (createdFiles.some(path => path.match(/iOS\/DuckDuckGo\/Assets.xcassets\/.*\.colorset/))) {
             fail("DesignResourcesKit: No new colors should be added to this app.")
         }
@@ -162,7 +210,7 @@ async function extractUrl(filePath: string, regex: string, matchGroup: any): Pro
 
 async function checkForMismatch(modifiedFiles: any, sourceCodeUrlFilePath: string, sourceCodeUrlRegex: string, scriptFilePath: string, scriptRegex: string) {
     const embeddedUrlFiles = [sourceCodeUrlFilePath, scriptFilePath];
-    
+
     // Run tests
     if (modifiedFiles.some(path => embeddedUrlFiles.includes(path))) {
         var sourceCodeFileContentsUrl = await extractUrl(sourceCodeUrlFilePath, sourceCodeUrlRegex, 1);
@@ -227,7 +275,7 @@ export const embeddedFilesURLMismatch = async() => {
     await privacyConfigMismatch(modifiedFiles)
 }
 
-export const releaseAndHotfixBranchBSKChangeWarning = async () => {  
+export const releaseAndHotfixBranchBSKChangeWarning = async () => {
     const branchName = danger.github.pr.head.ref;
     if (!branchName.startsWith('release/') && !branchName.startsWith('hotfix/')) return;
 
@@ -248,8 +296,10 @@ export default async () => {
     await prSize()
     await internalLink()
     await xcodeprojConfiguration_macOS()
+    await xcodeprojObjectVersion_macOS()
     await singletons()
     await userDefaultsWrapper()
+    await remoteReleasableFeatureWarning()
     await localizedStrings()
     await licensedFonts()
     await newColors()
