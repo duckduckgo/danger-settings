@@ -287,6 +287,94 @@ export const releaseAndHotfixBranchBSKChangeWarning = async () => {
     warn(`Please check whether the BSK changes on this branch need to be merged to the other platform's release/hotfix branch`);
 }
 
+export const featureFlagAsanaLink = async () => {
+    const featureFlagFiles = [
+        "iOS/Core/FeatureFlag.swift",
+        "macOS/LocalPackages/FeatureFlags/Sources/FeatureFlags/FeatureFlag.swift"
+    ];
+
+    const changedFiles = [
+        ...danger.git.modified_files,
+        ...danger.git.created_files
+    ].filter(file => featureFlagFiles.includes(file));
+
+    if (changedFiles.length === 0) return;
+
+    const asanaTaskUrlRegex = /^\/\/\/\s*https:\/\/app\.asana\.com\/1\/137249556945\/project\/1211834678943996\/task\/\d+\s*$/;
+
+    for (const file of changedFiles) {
+        const diff = await danger.git.diffForFile(file);
+        if (!diff?.diff) continue;
+
+        const diffLines = diff.diff.split(/\n/);
+        let insideFeatureFlagEnum = false;
+        let braceDepth = 0;
+
+        for (let i = 0; i < diffLines.length; i++) {
+            const line = diffLines[i];
+
+            // Skip diff metadata lines
+            if (line.startsWith("---") || line.startsWith("+++") || line.startsWith("\\")) continue;
+
+            // Reset context on new hunk headers
+            if (line.startsWith("@@")) {
+                insideFeatureFlagEnum = false;
+                braceDepth = 0;
+                // Check if the hunk header context mentions FeatureFlag enum
+                if (/enum\s+FeatureFlag\b/.test(line)) {
+                    insideFeatureFlagEnum = true;
+                    braceDepth = 1;
+                }
+                continue;
+            }
+
+            // Get the actual content (strip the leading +, -, or space)
+            const content = line.length > 0 ? line.substring(1) : "";
+
+            // Track enum FeatureFlag declaration
+            if (/\benum\s+FeatureFlag\b/.test(content)) {
+                insideFeatureFlagEnum = true;
+                braceDepth = 0;
+            }
+
+            // Track brace depth when inside FeatureFlag enum
+            if (insideFeatureFlagEnum) {
+                braceDepth += (content.match(/{/g) || []).length;
+                braceDepth -= (content.match(/}/g) || []).length;
+
+                if (braceDepth <= 0) {
+                    insideFeatureFlagEnum = false;
+                    continue;
+                }
+            }
+
+            if (!insideFeatureFlagEnum) continue;
+
+            // Only check added lines for new case declarations
+            if (!line.startsWith("+")) continue;
+            if (!/^\s*case\s+\w+/.test(content)) continue;
+
+            // Found an added case line – walk upward through added comment lines looking for the Asana URL
+            let foundAsanaLink = false;
+            for (let j = i - 1; j >= 0; j--) {
+                const prevLine = diffLines[j];
+                if (!prevLine.startsWith("+")) break;
+                const prevContent = prevLine.substring(1).trim();
+                if (!prevContent.startsWith("///")) break;
+                if (asanaTaskUrlRegex.test(prevContent)) {
+                    foundAsanaLink = true;
+                    break;
+                }
+            }
+
+            if (!foundAsanaLink) {
+                warn(`New FeatureFlag case in \`${file}\` is missing a valid Feature Flag link in the comment.\nAdd a task in https://app.asana.com/1/137249556945/project/1211834678943996/list/1211838475578067 and use it in the comment.`);
+                return;
+            }
+        }
+    }
+}
+
 // Default run
 export default async () => {
     await prSize()
@@ -301,4 +389,5 @@ export default async () => {
     await newColors()
     await embeddedFilesURLMismatch()
     await releaseAndHotfixBranchBSKChangeWarning()
+    await featureFlagAsanaLink()
 }
