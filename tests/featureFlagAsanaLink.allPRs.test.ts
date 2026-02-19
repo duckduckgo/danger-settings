@@ -268,4 +268,19 @@ describe("Feature flag Asana link checks", () => {
         await featureFlagAsanaLink()
         expect(dm.warn).toHaveBeenCalled()
     })
+
+    it("reports all cases missing links in a single warning", async () => {
+        dm.rawDiff = `@@ -10,6 +10,10 @@ enum FeatureFlag {
++    case firstFeature
++    /// https://app.asana.com/1/137249556945/project/1211834678943996/task/123456789
++    case validFeature
++    case secondFeature`
+
+        await featureFlagAsanaLink()
+        expect(dm.warn).toHaveBeenCalledTimes(1)
+        const message = dm.warn.mock.calls[0][0]
+        expect(message).toContain("firstFeature")
+        expect(message).toContain("secondFeature")
+        expect(message).not.toContain("validFeature")
+    })
 })

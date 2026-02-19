@@ -301,6 +301,7 @@ export const featureFlagAsanaLink = async () => {
     if (changedFiles.length === 0) return;
 
     const asanaTaskUrlRegex = /^\/\/\/\s*https:\/\/app\.asana\.com\/1\/137249556945\/project\/1211834678943996\/task\/\d+(\?\S*)?\s*$/;
+    const casesWithInvalidLinks: { file: string; caseName: string }[] = [];
 
     for (const file of changedFiles) {
         const structuredDiff = await danger.git.structuredDiffForFile(file);
@@ -347,7 +348,8 @@ export const featureFlagAsanaLink = async () => {
 
                 // Only check added lines for new case declarations
                 if (change.type !== "add") continue;
-                if (!/^\s*case\s+\w+/.test(content)) continue;
+                const caseMatch = content.match(/^\s*case\s+(\w+)/);
+                if (!caseMatch) continue;
 
                 // Found an added case line – walk upward through added comment lines looking for the Asana URL
                 let foundAsanaLink = false;
@@ -363,11 +365,15 @@ export const featureFlagAsanaLink = async () => {
                 }
 
                 if (!foundAsanaLink) {
-                    warn(`New FeatureFlag case in \`${file}\` is missing a valid Feature Flag link in the comment.\nAdd a task in https://app.asana.com/1/137249556945/project/1211834678943996/list/1211838475578067 and use it in the comment.`);
-                    return;
+                    casesWithInvalidLinks.push({ file, caseName: caseMatch[1] });
                 }
             }
         }
+    }
+
+    if (casesWithInvalidLinks.length > 0) {
+        const caseList = casesWithInvalidLinks.map(c => `- \`${c.caseName}\` in \`${c.file}\``).join("\n");
+        warn(`New FeatureFlag cases are missing a valid Feature Flag link in the comment:\n${caseList}\nAdd a task in https://app.asana.com/1/137249556945/project/1211834678943996/list/1211838475578067 and use it in the comment.`);
     }
 }
 
