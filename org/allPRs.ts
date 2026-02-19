@@ -287,6 +287,96 @@ export const releaseAndHotfixBranchBSKChangeWarning = async () => {
     warn(`Please check whether the BSK changes on this branch need to be merged to the other platform's release/hotfix branch`);
 }
 
+export const featureFlagAsanaLink = async () => {
+    const featureFlagFiles = [
+        "iOS/Core/FeatureFlag.swift",
+        "macOS/LocalPackages/FeatureFlags/Sources/FeatureFlags/FeatureFlag.swift"
+    ];
+
+    const changedFiles = [
+        ...danger.git.modified_files,
+        ...danger.git.created_files
+    ].filter(file => featureFlagFiles.includes(file));
+
+    if (changedFiles.length === 0) return;
+
+    const asanaTaskUrlRegex = /^\/\/\/\s*https:\/\/app\.asana\.com\/1\/137249556945\/project\/1211834678943996\/task\/\d+(\?\S*)?\s*$/;
+    const casesWithInvalidLinks: { file: string; caseName: string }[] = [];
+
+    for (const file of changedFiles) {
+        const structuredDiff = await danger.git.structuredDiffForFile(file);
+        if (!structuredDiff) continue;
+
+        for (const chunk of structuredDiff.chunks) {
+            let insideFeatureFlagEnum = false;
+            let braceDepth = 0;
+
+            // Check if the hunk header context mentions FeatureFlag enum
+            if (/enum\s+FeatureFlag\b/.test(chunk.content)) {
+                insideFeatureFlagEnum = true;
+                braceDepth = 1;
+            }
+
+            const changes = chunk.changes;
+
+            for (let i = 0; i < changes.length; i++) {
+                const change = changes[i];
+
+                // Skip removed lines – they don't exist in the new file
+                if (change.type === "del") continue;
+
+                const content = change.content.length > 0 ? change.content.substring(1) : "";
+
+                // Track enum FeatureFlag declaration
+                if (/\benum\s+FeatureFlag\b/.test(content)) {
+                    insideFeatureFlagEnum = true;
+                    braceDepth = 0;
+                }
+
+                // Track brace depth when inside FeatureFlag enum
+                if (insideFeatureFlagEnum) {
+                    braceDepth += (content.match(/{/g) || []).length;
+                    braceDepth -= (content.match(/}/g) || []).length;
+
+                    if (braceDepth <= 0) {
+                        insideFeatureFlagEnum = false;
+                        continue;
+                    }
+                }
+
+                if (!insideFeatureFlagEnum) continue;
+
+                // Only check added lines for new case declarations
+                if (change.type !== "add") continue;
+                const caseMatch = content.match(/^\s*case\s+(\w+)/);
+                if (!caseMatch) continue;
+
+                // Found an added case line – walk upward through added comment lines looking for the Asana URL
+                let foundAsanaLink = false;
+                for (let j = i - 1; j >= 0; j--) {
+                    const prevChange = changes[j];
+                    if (prevChange.type !== "add") break;
+                    const prevContent = prevChange.content.substring(1).trim();
+                    if (!prevContent.startsWith("///")) break;
+                    if (asanaTaskUrlRegex.test(prevContent)) {
+                        foundAsanaLink = true;
+                        break;
+                    }
+                }
+
+                if (!foundAsanaLink) {
+                    casesWithInvalidLinks.push({ file, caseName: caseMatch[1] });
+                }
+            }
+        }
+    }
+
+    if (casesWithInvalidLinks.length > 0) {
+        const caseList = casesWithInvalidLinks.map(c => `- \`${c.caseName}\` in \`${c.file}\``).join("\n");
+        warn(`New FeatureFlag cases are missing a valid Feature Flag link in the comment:\n${caseList}\n\nAdd a task in the [Feature Flags project](https://app.asana.com/1/137249556945/project/1211834678943996/list/1211838475578067) and use it in the comment.\nExpected format: \`/// https://app.asana.com/1/137249556945/project/1211834678943996/task/<task_id>\``);
+    }
+}
+
 // Default run
 export default async () => {
     await prSize()
@@ -301,4 +391,5 @@ export default async () => {
     await newColors()
     await embeddedFilesURLMismatch()
     await releaseAndHotfixBranchBSKChangeWarning()
+    await featureFlagAsanaLink()
 }
