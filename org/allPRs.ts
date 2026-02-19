@@ -373,7 +373,7 @@ export const featureFlagAsanaLink = async () => {
 
     if (casesWithInvalidLinks.length > 0) {
         const caseList = casesWithInvalidLinks.map(c => `- \`${c.caseName}\` in \`${c.file}\``).join("\n");
-        warn(`New FeatureFlag cases are missing a valid Feature Flag link in the comment:\n${caseList}\nAdd a task in https://app.asana.com/1/137249556945/project/1211834678943996/list/1211838475578067 and use it in the comment.`);
+        warn(`New FeatureFlag cases are missing a valid Feature Flag link in the comment:\n${caseList}\n\nAdd a task in the [Feature Flags project](https://app.asana.com/1/137249556945/project/1211834678943996/list/1211838475578067) and use it in the comment.\nExpected format: \`/// https://app.asana.com/1/137249556945/project/1211834678943996/task/<task_id>\``);
     }
 }
 
