@@ -288,6 +288,7 @@ export const releaseAndHotfixBranchBSKChangeWarning = async () => {
 }
 
 export const featureFlagAsanaLink = async () => {
+    warn(`Test`)
     const featureFlagFiles = [
         "iOS/Core/FeatureFlag.swift",
         "macOS/LocalPackages/FeatureFlags/Sources/FeatureFlags/FeatureFlag.swift"
