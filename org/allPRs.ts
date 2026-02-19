@@ -328,7 +328,10 @@ export const featureFlagAsanaLink = async () => {
                 continue;
             }
 
-            // Get the actual content (strip the leading +, -, or space)
+            // Skip removed lines – they don't exist in the new file
+            if (line.startsWith("-")) continue;
+
+            // Get the actual content (strip the leading + or space)
             const content = line.length > 0 ? line.substring(1) : "";
 
             // Track enum FeatureFlag declaration

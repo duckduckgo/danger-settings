@@ -230,4 +230,25 @@ describe("Feature flag Asana link checks", () => {
         await featureFlagAsanaLink()
         expect(dm.warn).not.toHaveBeenCalled()
     })
+
+    it("ignores braces from removed lines when tracking FeatureFlag enum scope", async () => {
+        dm.diffContent = `@@ -10,6 +10,8 @@ enum FeatureFlag {
+-    }
++    /// https://app.asana.com/1/137249556945/project/1211834678943996/task/123456789
++    case myNewFeature
+`
+
+        await featureFlagAsanaLink()
+        expect(dm.warn).not.toHaveBeenCalled()
+    })
+
+    it("warns when removed braces would have hidden a missing link", async () => {
+        dm.diffContent = `@@ -10,6 +10,8 @@ enum FeatureFlag {
+-    }
++    case myNewFeature
+`
+
+        await featureFlagAsanaLink()
+        expect(dm.warn).toHaveBeenCalled()
+    })
 })
