@@ -75,6 +75,15 @@ describe("Feature flag Asana link checks", () => {
         expect(dm.warn).not.toHaveBeenCalled()
     })
 
+    it("does not warn when Asana link has query parameters", async () => {
+        dm.rawDiff = `@@ -10,6 +10,8 @@ enum FeatureFlag {
++    /// https://app.asana.com/1/137249556945/project/1211834678943996/task/123456789?focus=true
++    case myNewFeature`
+
+        await featureFlagAsanaLink()
+        expect(dm.warn).not.toHaveBeenCalled()
+    })
+
     it("does not warn when added case with assignment has valid Asana link above it", async () => {
         dm.rawDiff = `@@ -10,6 +10,8 @@ enum FeatureFlag {
 +    /// https://app.asana.com/1/137249556945/project/1211834678943996/task/999888777

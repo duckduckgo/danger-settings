@@ -300,7 +300,7 @@ export const featureFlagAsanaLink = async () => {
 
     if (changedFiles.length === 0) return;
 
-    const asanaTaskUrlRegex = /^\/\/\/\s*https:\/\/app\.asana\.com\/1\/137249556945\/project\/1211834678943996\/task\/\d+\s*$/;
+    const asanaTaskUrlRegex = /^\/\/\/\s*https:\/\/app\.asana\.com\/1\/137249556945\/project\/1211834678943996\/task\/\d+(\?\S*)?\s*$/;
 
     for (const file of changedFiles) {
         const structuredDiff = await danger.git.structuredDiffForFile(file);
