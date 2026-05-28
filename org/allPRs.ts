@@ -377,6 +377,49 @@ export const featureFlagAsanaLink = async () => {
     }
 }
 
+export const pixelNamePrefix = async () => {
+    const changedFiles = [
+        ...danger.git.modified_files,
+        ...danger.git.created_files
+    ].filter(file => file.endsWith(".swift"));
+
+    // The regex matches lines like:
+    //   +    case appLaunch = "m_app_launch"
+    //   +    case foo(String) = "m_foo"
+    // It only triggers when the rawValue string literal starts with "m_".
+    // Breakdown:
+    // * `^\+`                       added line marker (not a deletion)
+    // * `(?!\s*\/\/)`               ignore commented-out lines
+    // * `\s*case\s+\w+`             a case declaration with an identifier
+    // * `(?:\([^)]*\))?`            optional associated value parentheses
+    // * `\s*=\s*"m_[^"]*"`          equals sign and a string literal starting with m_
+    const pixelCaseRegex = /^\+(?!\s*\/\/)\s*case\s+(\w+)(?:\([^)]*\))?\s*=\s*"(m_[^"]*)"/;
+
+    const offendingCases: { file: string; caseName: string; rawValue: string }[] = [];
+
+    for (const file of changedFiles) {
+        const diff = await danger.git.diffForFile(file);
+        const addedLines = diff?.added.split(/\n/);
+        if (!addedLines) continue;
+
+        for (const line of addedLines) {
+            const match = line.match(pixelCaseRegex);
+            if (match) {
+                offendingCases.push({ file, caseName: match[1], rawValue: match[2] });
+            }
+        }
+    }
+
+    if (offendingCases.length > 0) {
+        const caseList = offendingCases
+            .map(c => `- \`${c.caseName} = "${c.rawValue}"\` in \`${c.file}\``)
+            .join("\n");
+        warn(
+            `The \`m_\` pixel name prefix is no longer recommended. Please group pixels by app feature name instead.\n\nFound these new pixel cases:\n${caseList}\n\nNote: for iOS the platform suffix is added automatically by the pixel pipeline, so you do not need to include \`ios\` (or \`m_\`) in the pixel name. The same convention applies to macOS.`
+        );
+    }
+}
+
 // Default run
 export default async () => {
     await prSize()
@@ -392,4 +435,5 @@ export default async () => {
     await embeddedFilesURLMismatch()
     await releaseAndHotfixBranchBSKChangeWarning()
     await featureFlagAsanaLink()
+    await pixelNamePrefix()
 }
