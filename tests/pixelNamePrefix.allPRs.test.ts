@@ -135,4 +135,131 @@ describe("pixel name prefix warning", () => {
         await pixelNamePrefix()
         expect(dm.warn).toHaveBeenCalledTimes(1)
     })
+
+    it("warns for PixelKit-style return with m_ prefix", async () => {
+        dm.addedLines = `
++        case .errorPageShown:
++            return "m_malicious-site-protection_error-page-shown"
+        `
+
+        await pixelNamePrefix()
+        expect(dm.warn).toHaveBeenCalledTimes(1)
+        const warnMessage = dm.warn.mock.calls[0][0] as string
+        expect(warnMessage).toContain("m_malicious-site-protection_error-page-shown")
+        expect(warnMessage).toContain("return")
+    })
+
+    it("does not warn for PixelKit return without m_ prefix", async () => {
+        dm.addedLines = `
++        case .errorPageShown:
++            return "malicious-site-protection_error-page-shown"
+        `
+
+        await pixelNamePrefix()
+        expect(dm.warn).not.toHaveBeenCalled()
+    })
+
+    it("does not warn for commented-out return with m_ prefix", async () => {
+        dm.addedLines = `
++        // return "m_app_launch"
+        `
+
+        await pixelNamePrefix()
+        expect(dm.warn).not.toHaveBeenCalled()
+    })
+
+    it("does not warn for removed return with m_ prefix", async () => {
+        dm.addedLines = `
+-            return "m_app_launch"
+        `
+
+        await pixelNamePrefix()
+        expect(dm.warn).not.toHaveBeenCalled()
+    })
+
+    it("warns for multiple PixelKit returns and lists each", async () => {
+        dm.addedLines = `
++        case .errorPageShown:
++            return "m_error_page_shown"
++        case .visitSite:
++            return "m_visit_site"
++        case .okayCase:
++            return "feature_okay"
+        `
+
+        await pixelNamePrefix()
+        expect(dm.warn).toHaveBeenCalledTimes(1)
+        const warnMessage = dm.warn.mock.calls[0][0] as string
+        expect(warnMessage).toContain("m_error_page_shown")
+        expect(warnMessage).toContain("m_visit_site")
+        expect(warnMessage).not.toContain("feature_okay")
+    })
+
+    it("warns for enum case rawValue with m- (dashed) prefix", async () => {
+        dm.addedLines = `
++        case appLaunch = "m-app-launch"
+        `
+
+        await pixelNamePrefix()
+        expect(dm.warn).toHaveBeenCalledTimes(1)
+        const warnMessage = dm.warn.mock.calls[0][0] as string
+        expect(warnMessage).toContain("m-app-launch")
+    })
+
+    it("warns for PixelKit return with m- (dashed) prefix", async () => {
+        dm.addedLines = `
++        case .dangerDashedOldPixel:
++            return "m-danger-pixelkit-dashed_warn"
+        `
+
+        await pixelNamePrefix()
+        expect(dm.warn).toHaveBeenCalledTimes(1)
+        const warnMessage = dm.warn.mock.calls[0][0] as string
+        expect(warnMessage).toContain("m-danger-pixelkit-dashed_warn")
+    })
+
+    it("does not warn for names starting with m followed by a letter (no separator)", async () => {
+        // Guards against false positives like `malicious-site-protection_*`,
+        // `mac_browser_*`, `match_foo`, etc. – these start with `m` but lack
+        // the `_` or `-` separator that defines the deprecated prefix.
+        dm.addedLines = `
++        case .errorPageShown:
++            return "malicious-site-protection_error-page-shown"
++        case .macBrowser:
++            return "mac_browser_open"
++        case .matchFoo = "match_foo"
+        `
+
+        await pixelNamePrefix()
+        expect(dm.warn).not.toHaveBeenCalled()
+    })
+
+    it("warns for inline switch case with m_ return (iOS PixelEvent style)", async () => {
+        dm.addedLines = `
++        case .dangerIssueOldPixel: return "m_danger_test_warn"
++        case .dangerNoIssue: return "danger_test_no_issue"
+        `
+
+        await pixelNamePrefix()
+        expect(dm.warn).toHaveBeenCalledTimes(1)
+        const warnMessage = dm.warn.mock.calls[0][0] as string
+        expect(warnMessage).toContain("m_danger_test_warn")
+        expect(warnMessage).not.toContain("danger_test_no_issue")
+    })
+
+    it("warns for mixed enum case and PixelKit return in one diff", async () => {
+        dm.addedLines = `
++        case appLaunch = "m_app_launch"
++        case .errorPageShown:
++            return "m_error_page_shown"
+        `
+
+        await pixelNamePrefix()
+        expect(dm.warn).toHaveBeenCalledTimes(1)
+        const warnMessage = dm.warn.mock.calls[0][0] as string
+        expect(warnMessage).toContain("case appLaunch")
+        expect(warnMessage).toContain("m_app_launch")
+        expect(warnMessage).toContain("m_error_page_shown")
+        expect(warnMessage).toContain("return")
+    })
 })
