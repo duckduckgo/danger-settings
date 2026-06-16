@@ -377,6 +377,64 @@ export const featureFlagAsanaLink = async () => {
     }
 }
 
+export const pixelNamePrefix = async () => {
+    const changedFiles = [
+        ...danger.git.modified_files,
+        ...danger.git.created_files
+    ].filter(file => file.endsWith(".swift"));
+
+    // The `m[_-]` prefix matches both the legacy underscore form (`m_foo_bar`)
+    // and the dashed form (`m-foo-bar`) that could appear if a pixel were
+    // ported to the new dash-separated naming convention while keeping the
+    // `m` namespace.
+
+    // Matches an enum case with a rawValue string literal, e.g.:
+    //   +    case appLaunch = "m_app_launch"
+    //   +    case appLaunch = "m-app-launch"
+    //   +    case foo(String) = "m_foo"
+    const pixelCaseRegex = /^\+(?!\s*\/\/)\s*case\s+(\w+)(?:\([^)]*\))?\s*=\s*"(m[_-][^"]*)"/;
+
+    // Matches a PixelKit-style `var name: String` return, in both multi-line
+    // and inline-switch forms, e.g.:
+    //   +        return "m_app_launch"
+    //   +        return "m-app-launch"
+    //   +        case .foo: return "m_app_launch"
+    // The `.*` allows for arbitrary content (such as `case .x:`) between the
+    // line marker and the `return` keyword. The negative lookahead still rules
+    // out lines that begin with `//`.
+    const pixelReturnRegex = /^\+(?!\s*\/\/).*\breturn\s+"(m[_-][^"]*)"/;
+
+    const offendingCases: { file: string; snippet: string }[] = [];
+
+    for (const file of changedFiles) {
+        const diff = await danger.git.diffForFile(file);
+        const addedLines = diff?.added.split(/\n/);
+        if (!addedLines) continue;
+
+        for (const line of addedLines) {
+            const caseMatch = line.match(pixelCaseRegex);
+            if (caseMatch) {
+                offendingCases.push({ file, snippet: `case ${caseMatch[1]} = "${caseMatch[2]}"` });
+                continue;
+            }
+
+            const returnMatch = line.match(pixelReturnRegex);
+            if (returnMatch) {
+                offendingCases.push({ file, snippet: `return "${returnMatch[1]}"` });
+            }
+        }
+    }
+
+    if (offendingCases.length > 0) {
+        const caseList = offendingCases
+            .map(c => `- \`${c.snippet}\` in \`${c.file}\``)
+            .join("\n");
+        warn(
+            `The \`m_\` (or \`m-\`) pixel name prefix is no longer recommended. Please group pixels by app feature name instead.\n\nFound these new pixel definitions:\n${caseList}\n\nNote: for iOS the platform suffix is added automatically by the pixel pipeline, so you do not need to include \`ios\` (or \`m_\`/\`m-\`) in the pixel name. The same convention applies to macOS.`
+        );
+    }
+}
+
 // Default run
 export default async () => {
     await prSize()
@@ -392,4 +450,5 @@ export default async () => {
     await embeddedFilesURLMismatch()
     await releaseAndHotfixBranchBSKChangeWarning()
     await featureFlagAsanaLink()
+    await pixelNamePrefix()
 }
