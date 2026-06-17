@@ -32,6 +32,7 @@ function buildStructuredDiff(rawDiff: string) {
 }
 
 const SUBSCRIPTION_ENTRY_POINTS = "https://app.asana.com/1/137249556945/project/1207260194172075/task/1209784982258586";
+const SUBSCRIPTION_ENTRY_POINTS_SUBTASK = "https://app.asana.com/1/137249556945/project/1207260194172075/task/1209785835918102";
 
 beforeEach(() => {
     dm.rawDiff = ""
@@ -77,6 +78,15 @@ describe("Subscription funnel origin Asana link checks", () => {
         expect(dm.warn).not.toHaveBeenCalled()
     })
 
+    it("does not warn when added case links a specific entry-point subtask", async () => {
+        dm.rawDiff = `@@ -10,6 +10,8 @@ enum SubscriptionFunnelOrigin: String {
++    /// ${SUBSCRIPTION_ENTRY_POINTS_SUBTASK}
++    case myNewOrigin = "funnel_mynew_ios"`
+
+        await subscriptionFunnelOriginAsanaLink()
+        expect(dm.warn).not.toHaveBeenCalled()
+    })
+
     it("does not warn when Subscription Entry Points link has query parameters", async () => {
         dm.rawDiff = `@@ -10,6 +10,8 @@ enum SubscriptionFunnelOrigin: String {
 +    /// ${SUBSCRIPTION_ENTRY_POINTS}?focus=true
@@ -113,9 +123,18 @@ describe("Subscription funnel origin Asana link checks", () => {
         expect(dm.warn).toHaveBeenCalled()
     })
 
-    it("warns when link points to a different task", async () => {
+    it("warns when link points to a task in a different project", async () => {
         dm.rawDiff = `@@ -10,6 +10,8 @@ enum SubscriptionFunnelOrigin: String {
-+    /// https://app.asana.com/1/137249556945/project/1207260194172075/task/9999999999999999
++    /// https://app.asana.com/1/137249556945/project/9999999999999999/task/1209785835918102
++    case myNewOrigin = "funnel_mynew_ios"`
+
+        await subscriptionFunnelOriginAsanaLink()
+        expect(dm.warn).toHaveBeenCalled()
+    })
+
+    it("warns for a link missing the project segment", async () => {
+        dm.rawDiff = `@@ -10,6 +10,8 @@ enum SubscriptionFunnelOrigin: String {
++    /// https://app.asana.com/1/137249556945/task/1209785835918102
 +    case myNewOrigin = "funnel_mynew_ios"`
 
         await subscriptionFunnelOriginAsanaLink()

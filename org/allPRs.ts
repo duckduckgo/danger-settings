@@ -390,7 +390,7 @@ export const subscriptionFunnelOriginAsanaLink = async () => {
 
     if (changedFiles.length === 0) return;
 
-    const asanaTaskUrlRegex = /^\/\/\/\s*https:\/\/app\.asana\.com\/1\/137249556945\/project\/1207260194172075\/task\/1209784982258586(\?\S*)?\s*$/;
+    const asanaTaskUrlRegex = /^\/\/\/\s*https:\/\/app\.asana\.com\/1\/137249556945\/project\/1207260194172075\/task\/\d+(\?\S*)?\s*$/;
     const casesWithInvalidLinks: { file: string; caseName: string }[] = [];
 
     for (const file of changedFiles) {
@@ -463,7 +463,7 @@ export const subscriptionFunnelOriginAsanaLink = async () => {
 
     if (casesWithInvalidLinks.length > 0) {
         const caseList = casesWithInvalidLinks.map(c => `- \`${c.caseName}\` in \`${c.file}\``).join("\n");
-        warn(`New subscription funnel origin cases are missing a link to the Subscription Entry Points task:\n${caseList}\n\nUpdate the [Subscription Entry Points task](https://app.asana.com/1/137249556945/project/1207260194172075/task/1209784982258586) with the new origin(s) and reference it in the comment so the funnel-origin dashboards stay complete.\nExpected format: \`/// https://app.asana.com/1/137249556945/project/1207260194172075/task/1209784982258586\``);
+        warn(`New subscription funnel origin cases are missing a link to their Subscription Entry Points subtask:\n${caseList}\n\nAdd the new origin(s) under the [Subscription Entry Points task](https://app.asana.com/1/137249556945/project/1207260194172075/task/1209784982258586) and reference the matching subtask in the comment so the funnel-origin dashboards stay complete.\nExpected format: \`/// https://app.asana.com/1/137249556945/project/1207260194172075/task/<task_id>\``);
     }
 }
 
