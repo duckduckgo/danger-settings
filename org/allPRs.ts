@@ -377,6 +377,96 @@ export const featureFlagAsanaLink = async () => {
     }
 }
 
+export const subscriptionFunnelOriginAsanaLink = async () => {
+    const funnelOriginFiles = [
+        "iOS/DuckDuckGo/Subscription/SubscriptionFunnelOrigin.swift",
+        "macOS/DuckDuckGo/Subscription/SubscriptionFunnelOrigin.swift"
+    ];
+
+    const changedFiles = [
+        ...danger.git.modified_files,
+        ...danger.git.created_files
+    ].filter(file => funnelOriginFiles.includes(file));
+
+    if (changedFiles.length === 0) return;
+
+    const asanaTaskUrlRegex = /^\/\/\/\s*https:\/\/app\.asana\.com\/1\/137249556945\/project\/1207260194172075\/task\/1209784982258586(\?\S*)?\s*$/;
+    const casesWithInvalidLinks: { file: string; caseName: string }[] = [];
+
+    for (const file of changedFiles) {
+        const structuredDiff = await danger.git.structuredDiffForFile(file);
+        if (!structuredDiff) continue;
+
+        for (const chunk of structuredDiff.chunks) {
+            let insideFunnelOriginEnum = false;
+            let braceDepth = 0;
+
+            // Check if the hunk header context mentions the funnel origin enum
+            if (/enum\s+SubscriptionFunnelOrigin\b/.test(chunk.content)) {
+                insideFunnelOriginEnum = true;
+                braceDepth = 1;
+            }
+
+            const changes = chunk.changes;
+
+            for (let i = 0; i < changes.length; i++) {
+                const change = changes[i];
+
+                // Skip removed lines – they don't exist in the new file
+                if (change.type === "del") continue;
+
+                const content = change.content.length > 0 ? change.content.substring(1) : "";
+
+                // Track funnel origin enum declaration
+                if (/\benum\s+SubscriptionFunnelOrigin\b/.test(content)) {
+                    insideFunnelOriginEnum = true;
+                    braceDepth = 0;
+                }
+
+                // Track brace depth when inside the funnel origin enum
+                if (insideFunnelOriginEnum) {
+                    braceDepth += (content.match(/{/g) || []).length;
+                    braceDepth -= (content.match(/}/g) || []).length;
+
+                    if (braceDepth <= 0) {
+                        insideFunnelOriginEnum = false;
+                        continue;
+                    }
+                }
+
+                if (!insideFunnelOriginEnum) continue;
+
+                // Only check added lines for new case declarations
+                if (change.type !== "add") continue;
+                const caseMatch = content.match(/^\s*case\s+(\w+)/);
+                if (!caseMatch) continue;
+
+                // Found an added case line – walk upward through added comment lines looking for the Subscription Entry Points link
+                let foundAsanaLink = false;
+                for (let j = i - 1; j >= 0; j--) {
+                    const prevChange = changes[j];
+                    if (prevChange.type !== "add") break;
+                    const prevContent = prevChange.content.substring(1).trim();
+                    if (!prevContent.startsWith("///")) break;
+                    if (asanaTaskUrlRegex.test(prevContent)) {
+                        foundAsanaLink = true;
+                        break;
+                    }
+                }
+
+                if (!foundAsanaLink) {
+                    casesWithInvalidLinks.push({ file, caseName: caseMatch[1] });
+                }
+            }
+        }
+    }
+
+    if (casesWithInvalidLinks.length > 0) {
+        const caseList = casesWithInvalidLinks.map(c => `- \`${c.caseName}\` in \`${c.file}\``).join("\n");
+        warn(`New subscription funnel origin cases are missing a link to the Subscription Entry Points task:\n${caseList}\n\nUpdate the [Subscription Entry Points task](https://app.asana.com/1/137249556945/project/1207260194172075/task/1209784982258586) with the new origin(s) and reference it in the comment so the funnel-origin dashboards stay complete.\nExpected format: \`/// https://app.asana.com/1/137249556945/project/1207260194172075/task/1209784982258586\``);
+    }
+}
+
 export const pixelNamePrefix = async () => {
     const changedFiles = [
         ...danger.git.modified_files,
@@ -450,5 +540,6 @@ export default async () => {
     await embeddedFilesURLMismatch()
     await releaseAndHotfixBranchBSKChangeWarning()
     await featureFlagAsanaLink()
+    await subscriptionFunnelOriginAsanaLink()
     await pixelNamePrefix()
 }
