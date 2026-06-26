@@ -525,6 +525,26 @@ export const pixelNamePrefix = async () => {
     }
 }
 
+export const debugViewVerbatimText = async () => {
+    const changedFiles = [
+        ...danger.git.modified_files,
+        ...danger.git.created_files
+    ].filter(file => file.endsWith(".swift") && file.includes("Debug"));
+
+    for (const file of changedFiles) {
+        let diff = await danger.git.diffForFile(file);
+        let addedLines = diff?.added.split(/\n/);
+        // Matches added, non-commented lines containing Text("...") — use Text(verbatim:) in debug views to avoid translation.
+        const foundLine = addedLines?.find(value =>
+            /^\+(?!\s*\/\/).*\bText\s*\(\s*"/.test(value)
+        );
+        if (foundLine) {
+            const cleanLine = foundLine.replace(/^\+\s*/, '').trim();
+            warn(`Debug view \`${file}\` uses \`Text("...")\` which goes through the localization system. Use \`Text(verbatim:)\` instead to prevent strings from being translated:\n\`\`\`swift\n${cleanLine}\n\`\`\``);
+        }
+    }
+}
+
 // Default run
 export default async () => {
     await prSize()
@@ -542,4 +562,5 @@ export default async () => {
     await featureFlagAsanaLink()
     await subscriptionFunnelOriginAsanaLink()
     await pixelNamePrefix()
+    await debugViewVerbatimText()
 }
