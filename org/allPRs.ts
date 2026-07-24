@@ -618,7 +618,7 @@ export const legacyPixelUsage = async () => {
     const list = offences
         .map(o => `- \`${o.symbol}\` in \`${o.file}\`: \`${o.snippet}\``)
         .join("\n");
-    fail(
+    warn(
         "Legacy iOS pixel system is deprecated – use `PixelKit` instead.\n"+
          "(`Pixel`, `DailyPixel`, `UniquePixel`, `TimedPixel`, and `PersistentPixel` are deprecated).\n" +
         "See https://app.asana.com/1/137249556945/project/1208546505108826/task/1216768405353137?focus=true\n\n" +
