@@ -545,6 +545,87 @@ export const debugViewVerbatimText = async () => {
     }
 }
 
+export const legacyPixelUsage = async () => {
+    // The legacy pixel system is iOS-only, so scope the check to apple-browsers.
+    if (danger.github?.thisPR?.repo !== "apple-browsers") return;
+
+    // These files define the legacy pixel infrastructure itself, so their own
+    // references to the types (and the internal plumbing between them) are fine.
+    const excludedFiles = new Set([
+        "iOS/Core/Pixel.swift",
+        "iOS/Core/PixelEvent.swift",
+        "iOS/Core/PixelFiring.swift",
+        "iOS/Core/PixelFiringAsync.swift",
+        "iOS/Core/DailyPixel.swift",
+        "iOS/Core/DailyPixelFiring.swift",
+        "iOS/Core/UniquePixel.swift",
+        "iOS/Core/TimedPixel.swift",
+        "iOS/Core/PersistentPixel.swift",
+        "iOS/Core/PersistentPixelStoring.swift",
+    ]);
+
+    // Tests and mocks exercise the legacy types by design.
+    const isTestOrMock = (file: string) =>
+        file.includes("/Tests/") || /(?:Tests?|Mocks?)\.swift$/.test(file);
+
+    const changedFiles = [
+        ...danger.git.modified_files,
+        ...danger.git.created_files
+    ].filter(file =>
+        file.endsWith(".swift") &&
+        !excludedFiles.has(file) &&
+        !isTestOrMock(file)
+    );
+
+    // Each legacy symbol paired with a matcher for an added, non-comment line.
+    //  - `Pixel` is matched via member access (`Pixel.`) so it does not collide
+    //    with `PixelKit.`, `DailyPixel.`, a local `somePixel.`, etc. – the `\b`
+    //    ensures only the standalone `Pixel` token matches.
+    //  - The `PixelFiring` protocol is intentionally omitted: PixelKit's
+    //    recommended replacement protocol shares the exact same name, so a token
+    //    match can't distinguish the legacy one from the modern one.
+    const legacySymbols: { name: string; regex: RegExp }[] = [
+        { name: "Pixel", regex: /^\+(?!\s*\/\/).*\bPixel\./ },
+        { name: "DailyPixel", regex: /^\+(?!\s*\/\/).*\bDailyPixel\b/ },
+        { name: "UniquePixel", regex: /^\+(?!\s*\/\/).*\bUniquePixel\b/ },
+        { name: "TimedPixel", regex: /^\+(?!\s*\/\/).*\bTimedPixel\b/ },
+        { name: "PersistentPixel", regex: /^\+(?!\s*\/\/).*\bPersistentPixel\b/ },
+    ];
+
+    const offences: { file: string; symbol: string; snippet: string }[] = [];
+
+    for (const file of changedFiles) {
+        const diff = await danger.git.diffForFile(file);
+        const addedLines = diff?.added.split(/\n/);
+        if (!addedLines) continue;
+
+        for (const line of addedLines) {
+            for (const symbol of legacySymbols) {
+                if (symbol.regex.test(line)) {
+                    offences.push({
+                        file,
+                        symbol: symbol.name,
+                        snippet: line.replace(/^\+\s*/, "").trim()
+                    });
+                    break; // one report per line is enough
+                }
+            }
+        }
+    }
+
+    if (offences.length === 0) return;
+
+    const list = offences
+        .map(o => `- \`${o.symbol}\` in \`${o.file}\`: \`${o.snippet}\``)
+        .join("\n");
+    warn(
+        "Legacy iOS pixel system is deprecated – use `PixelKit` instead.\n"+
+         "(`Pixel`, `DailyPixel`, `UniquePixel`, `TimedPixel`, and `PersistentPixel` are deprecated).\n" +
+        "See https://app.asana.com/1/137249556945/project/1208546505108826/task/1216768405353137?focus=true\n\n" +
+        `Found these new uses:\n${list}`
+    );
+}
+
 // Default run
 export default async () => {
     await prSize()
@@ -563,4 +644,5 @@ export default async () => {
     await subscriptionFunnelOriginAsanaLink()
     await pixelNamePrefix()
     await debugViewVerbatimText()
+    await legacyPixelUsage()
 }
