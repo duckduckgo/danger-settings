@@ -643,9 +643,13 @@ export const snapshotSubmodulePointer = async () => {
     const mergeLabel = "merge snapshots";
 
     // A submodule pointer bump shows up in the monorepo diff as a change to the gitlink,
-    // whose diff body contains `Subproject commit <sha>` lines. Match on the submodule
-    // path and confirm it's a gitlink change before doing anything.
-    const submoduleFiles = danger.git.modified_files.filter(file => file.includes(submodulePathMarker));
+    // whose diff body contains `Subproject commit <sha>` lines. A first-time submodule
+    // addition lands in created_files, so union both lists. Match on the submodule path
+    // and confirm it's a gitlink change before doing anything.
+    const submoduleFiles = [
+        ...danger.git.modified_files,
+        ...danger.git.created_files
+    ].filter(file => file.includes(submodulePathMarker));
     if (submoduleFiles.length === 0) return;
 
     const subprojectRegex = /^\+Subproject commit ([0-9a-f]{7,64})/m;

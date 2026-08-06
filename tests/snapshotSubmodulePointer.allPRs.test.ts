@@ -89,6 +89,21 @@ describe("snapshot submodule pointer checks", () => {
         expect(dm.message).toHaveBeenCalledTimes(1)
     })
 
+    it("validates a newly added submodule gitlink from created_files", async () => {
+        dm.danger.git.modified_files = []
+        dm.danger.git.created_files = ["iOS/SnapshotReferences"]
+        dm.compareCommits.mockRejectedValue({ status: 404 })
+
+        await snapshotSubmodulePointer()
+        expect(dm.compareCommits).toHaveBeenCalledWith({
+            owner: "duckduckgo",
+            repo: "apple-browsers-snapshots",
+            base: "main",
+            head: "b".repeat(40)
+        })
+        expect(dm.fail).toHaveBeenCalledTimes(1)
+    })
+
     it("passes when the new commit is identical to submodule main", async () => {
         dm.compareCommits.mockResolvedValue({ data: { status: "identical" } })
 
