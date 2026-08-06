@@ -640,7 +640,7 @@ export const snapshotSubmodulePointer = async () => {
     const submoduleMainBranch = "main";
     const submodulePathMarker = "SnapshotReferences";
     const scriptPath = "scripts/open-snapshot-submodule-pr.sh";
-    const mergeLabel = "merge-snapshots";
+    const mergeLabel = "merge snapshots";
 
     // A submodule pointer bump shows up in the monorepo diff as a change to the gitlink,
     // whose diff body contains `Subproject commit <sha>` lines. Match on the submodule

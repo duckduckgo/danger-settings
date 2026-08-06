@@ -97,14 +97,14 @@ describe("snapshot submodule pointer checks", () => {
         expect(dm.message).toHaveBeenCalledTimes(1)
     })
 
-    it("fails and nudges for the merge-snapshots label when the commit is on a branch but not main", async () => {
+    it("fails and nudges for the merge snapshots label when the commit is on a branch but not main", async () => {
         dm.compareCommits.mockResolvedValue({ data: { status: "ahead" } })
 
         await snapshotSubmodulePointer()
         expect(dm.message).not.toHaveBeenCalled()
         expect(dm.fail).toHaveBeenCalledTimes(1)
         const failMessage = dm.fail.mock.calls[0][0] as string
-        expect(failMessage).toContain("merge-snapshots")
+        expect(failMessage).toContain("merge snapshots")
         expect(failMessage).toContain("not yet merged")
     })
 
@@ -114,7 +114,7 @@ describe("snapshot submodule pointer checks", () => {
         await snapshotSubmodulePointer()
         expect(dm.fail).toHaveBeenCalledTimes(1)
         const failMessage = dm.fail.mock.calls[0][0] as string
-        expect(failMessage).toContain("merge-snapshots")
+        expect(failMessage).toContain("merge snapshots")
     })
 
     it("fails and points to the script when the commit is not on the remote", async () => {
