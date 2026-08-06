@@ -626,6 +626,84 @@ export const legacyPixelUsage = async () => {
     );
 }
 
+export const snapshotSubmodulePointer = async () => {
+    // Reference images for the snapshot testing library live in a separate submodule
+    // repo (duckduckgo/apple-browsers-snapshots). This check enforces that whenever a PR
+    // moves the submodule pointer, the referenced commit is actually reachable on the
+    // remote, and nudges the author towards the companion-PR workflow otherwise.
+    //
+    // See https://app.asana.com/1/137249556945/project/1214200115953388/task/1216991440153385
+    if (danger.github?.thisPR?.repo !== "apple-browsers") return;
+
+    const submoduleOwner = "duckduckgo";
+    const submoduleRepo = "apple-browsers-snapshots";
+    const submoduleMainBranch = "main";
+    const submodulePathMarker = "SnapshotReferences";
+    const scriptPath = "scripts/open-snapshot-submodule-pr.sh";
+    const mergeLabel = "merge snapshots";
+
+    // A submodule pointer bump shows up in the monorepo diff as a change to the gitlink,
+    // whose diff body contains `Subproject commit <sha>` lines. A first-time submodule
+    // addition lands in created_files, so union both lists. Match on the submodule path
+    // and confirm it's a gitlink change before doing anything.
+    const submoduleFiles = [
+        ...danger.git.modified_files,
+        ...danger.git.created_files
+    ].filter(file => file.includes(submodulePathMarker));
+    if (submoduleFiles.length === 0) return;
+
+    const subprojectRegex = /^\+Subproject commit ([0-9a-f]{7,64})/m;
+    let newCommit: string | undefined;
+    for (const file of submoduleFiles) {
+        const diff = await danger.git.diffForFile(file);
+        const match = diff?.added.match(subprojectRegex);
+        if (match) {
+            newCommit = match[1];
+            break;
+        }
+    }
+
+    // Pointer unchanged (or the changed file wasn't actually a gitlink) → silent.
+    if (!newCommit) return;
+
+    // Ask the submodule repo where this commit sits relative to main. `compareCommits`
+    // returns a `status` of behind/identical when `head` is contained in `base`, and
+    // ahead/diverged when it carries commits main doesn't have. A missing commit 404s.
+    try {
+        const comparison = await danger.github.api.repos.compareCommits({
+            owner: submoduleOwner,
+            repo: submoduleRepo,
+            base: submoduleMainBranch,
+            head: newCommit
+        });
+
+        const status = comparison?.data?.status;
+        if (status === "behind" || status === "identical") {
+            // Contained in submodule main → pass.
+            message(`The \`${submodulePathMarker}\` submodule points at \`${newCommit}\`, already merged into \`${submoduleRepo}\` \`${submoduleMainBranch}\`. ✅`);
+            return;
+        }
+
+        // On the remote (companion PR still open) but not yet on main.
+        fail(
+            `The \`${submodulePathMarker}\` submodule points at \`${newCommit}\`, which is on \`${submoduleOwner}/${submoduleRepo}\` but not yet merged into \`${submoduleMainBranch}\`.\n` +
+            `Review the companion PR, then apply the \`${mergeLabel}\` label to fold it in and update the pointer to the resulting \`${submoduleMainBranch}\` commit.`
+        );
+    } catch (error: any) {
+        if (error?.status === 404) {
+            // The commit isn't on the remote at all (unpushed / nonexistent).
+            fail(
+                `The \`${submodulePathMarker}\` submodule points at \`${newCommit}\`, which isn't on \`${submoduleOwner}/${submoduleRepo}\`.\n` +
+                `Run \`${scriptPath}\` to push the reference changes and open the companion PR.`
+            );
+            return;
+        }
+
+        // Any other failure (network, permissions) shouldn't block the PR – warn instead.
+        warn(`Couldn't verify the \`${submodulePathMarker}\` submodule pointer against \`${submoduleOwner}/${submoduleRepo}\`: ${error?.message ?? error}`);
+    }
+}
+
 // Default run
 export default async () => {
     await prSize()
@@ -645,4 +723,5 @@ export default async () => {
     await pixelNamePrefix()
     await debugViewVerbatimText()
     await legacyPixelUsage()
+    await snapshotSubmodulePointer()
 }
