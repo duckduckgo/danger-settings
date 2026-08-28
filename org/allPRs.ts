@@ -626,6 +626,54 @@ export const legacyPixelUsage = async () => {
     );
 }
 
+export const noNewPixelEventCases = async () => {
+    // This file is iOS-only, so scope the check to apple-browsers.
+    if (danger.github?.thisPR?.repo !== "apple-browsers") return;
+
+    const file = "iOS/Core/PixelEvent.swift";
+    const changedFiles = [
+        ...danger.git.modified_files,
+        ...danger.git.created_files
+    ];
+    if (!changedFiles.includes(file)) return;
+
+    const diff = await danger.git.diffForFile(file);
+    if (!diff) return;
+
+    // Matches a `case someName` (enum declaration) or `case .someName:` / `case .someName(...)`
+    // (a `name` switch arm, or any other per-case switch) on either an added or a removed line.
+    // Associated values after the identifier are ignored - only the case identifier matters here.
+    const caseIdentifier = (line: string) => {
+        const match = line.match(/^[+-]\s*case\s+\.?(\w+)/);
+        return match ? match[1] : null;
+    };
+
+    // A case identifier that also appears among removed lines is a modification (its `name`
+    // string, associated values, or position changed) or a pure deletion - not a new pixel.
+    const removedCases = new Set(
+        diff.removed.split(/\n/).map(caseIdentifier).filter((id): id is string => id !== null)
+    );
+
+    const newCases: string[] = [];
+    for (const line of diff.added.split(/\n/)) {
+        const identifier = caseIdentifier(line);
+        if (identifier && !removedCases.has(identifier)) {
+            newCases.push(line.replace(/^\+\s*/, "").trim());
+        }
+    }
+
+    if (newCases.length === 0) return;
+
+    const list = newCases.map(snippet => `- \`${snippet}\``).join("\n");
+    fail(
+        `\`${file}\` is deprecated for new pixels - its own top-of-file notice says not to add any more here. ` +
+        "Define new iOS pixels as a separate type conforming to `PixelKit.Event` instead.\n\n" +
+        `Found what looks like new case(s):\n${list}\n\n` +
+        "Modifying an existing case (its `name` string, associated values, etc.) or removing one is fine - " +
+        "this check only blocks a case identifier that didn't exist in the file before this PR."
+    );
+}
+
 export const snapshotSubmodulePointer = async () => {
     // Reference images for the snapshot testing library live in a separate submodule
     // repo (duckduckgo/apple-browsers-snapshots). This check enforces that whenever a PR
@@ -723,5 +771,6 @@ export default async () => {
     await pixelNamePrefix()
     await debugViewVerbatimText()
     await legacyPixelUsage()
+    await noNewPixelEventCases()
     await snapshotSubmodulePointer()
 }
