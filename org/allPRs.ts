@@ -554,14 +554,6 @@ export const legacyPixelUsage = async () => {
     const excludedFiles = new Set([
         "iOS/Core/Pixel.swift",
         "iOS/Core/PixelEvent.swift",
-        "iOS/Core/PixelFiring.swift",
-        "iOS/Core/PixelFiringAsync.swift",
-        "iOS/Core/DailyPixel.swift",
-        "iOS/Core/DailyPixelFiring.swift",
-        "iOS/Core/UniquePixel.swift",
-        "iOS/Core/TimedPixel.swift",
-        "iOS/Core/PersistentPixel.swift",
-        "iOS/Core/PersistentPixelStoring.swift",
     ]);
 
     // Tests and mocks exercise the legacy types by design.
