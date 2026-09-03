@@ -618,6 +618,78 @@ export const legacyPixelUsage = async () => {
     );
 }
 
+export const pixelKitSingletonUsage = async () => {
+    // PixelKit lives only in apple-browsers, so scope the check to that repo.
+    if (danger.github?.thisPR?.repo !== "apple-browsers") return;
+
+    // PixelKit's own sources declare the static entry points and legitimately reach for
+    // `Self.shared`; its tests drive the singleton on purpose (`setUp` then `fire`).
+    const isPixelKitPackage = (file: string) => file.includes("SharedPackages/PixelKit/");
+
+    // Tests, test utilities and mocks may fire through the singleton by design. Any path
+    // component mentioning Test or Mock is treated as such - in this repo that only ever names
+    // test targets and test-support modules (`DuckDuckGoTests`, `UnitTests`, `SharedTestUtils`,
+    // `VPNTestUtils`, `...Mocks`), never production code.
+    const isTestOrMock = (file: string) =>
+        file.split("/").some(component => component.includes("Test") || component.includes("Mock"));
+
+    const changedFiles = [
+        ...danger.git.modified_files,
+        ...danger.git.created_files
+    ].filter(file =>
+        file.endsWith(".swift") &&
+        !isPixelKitPackage(file) &&
+        !isTestOrMock(file)
+    );
+
+    // Matches an added, non-comment line that fires straight through the singleton, in either
+    // shape it takes:
+    //   PixelKit.fire(...)          / PixelKit.fireAsync(...)          - static shortcut
+    //   PixelKit.shared?.fire(...)  / PixelKit.shared!.fireAsync(...)  - explicit singleton
+    //
+    // A bare `PixelKit.shared` is deliberately NOT matched. Handing it to a collaborator is the
+    // sanctioned injection seam and its most common use by far, whether as a default argument
+    // (`init(pixelFiring: any PixelKitFiring = PixelKit.shared)`) or at a composition root. Only
+    // reaching for the singleton at the point of firing skips the seam.
+    const singletonFireRegex =
+        /^\+(?!\s*\/\/).*\bPixelKit\s*\.\s*(?:shared\s*[?!]?\s*\.\s*)?fire(?:Async)?\s*\(/;
+
+    const offences: { file: string; snippet: string }[] = [];
+
+    for (const file of changedFiles) {
+        const diff = await danger.git.diffForFile(file);
+        const addedLines = diff?.added.split(/\n/);
+        if (!addedLines) continue;
+
+        for (const line of addedLines) {
+            if (singletonFireRegex.test(line)) {
+                offences.push({ file, snippet: line.replace(/^\+\s*/, "").trim() });
+            }
+        }
+    }
+
+    if (offences.length === 0) return;
+
+    const list = offences
+        .map(o => `- \`${o.file}\`: \`${o.snippet}\``)
+        .join("\n");
+    warn(
+        "Firing a pixel straight through the `PixelKit` singleton leaves the call site untestable. " +
+        "Inject a `PixelKitFiring` (the exported alias for PixelKit's `PixelFiring` protocol) and " +
+        "call `fire` on it instead:\n" +
+        "```swift\n" +
+        "init(pixelFiring: any PixelKitFiring = PixelKit.shared) { self.pixelFiring = pixelFiring }\n" +
+        "...\n" +
+        "pixelFiring.fire(SomePixel.event, frequency: .daily)\n" +
+        "```\n" +
+        "Passing `PixelKit.shared` as that dependency is fine, and is what the default argument " +
+        "above does. It is reaching for the singleton at the point of firing that this flags.\n" +
+        "See `SharedPackages/PixelKit/Sources/PixelKit/PixelFiring.swift` for the protocol, and the\n" +
+        "singleton section of `.cursor/rules/anti-patterns.mdc` for why the seam matters.\n\n" +
+        `Found these new direct singleton fires:\n${list}`
+    );
+}
+
 export const noNewPixelEventCases = async () => {
     // This file is iOS-only, so scope the check to apple-browsers.
     if (danger.github?.thisPR?.repo !== "apple-browsers") return;
