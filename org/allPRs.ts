@@ -705,23 +705,27 @@ export const noNewPixelEventCases = async () => {
     if (!diff) return;
 
     // Matches a `case someName` (enum declaration) or `case .someName:` / `case .someName(...)`
-    // (a `name` switch arm, or any other per-case switch) on either an added or a removed line.
-    // Associated values after the identifier are ignored - only the case identifier matters here.
+    // (a `name` switch arm, or any other per-case switch), with an optional leading `+`/`-` diff
+    // marker so the same matcher works on raw file content and on diff lines alike. Associated
+    // values after the identifier are ignored - only the case identifier matters here.
     const caseIdentifier = (line: string) => {
-        const match = line.match(/^[+-]\s*case\s+\.?(\w+)/);
+        const match = line.match(/^[+-]?\s*case\s+\.?(\w+)/);
         return match ? match[1] : null;
     };
 
-    // A case identifier that also appears among removed lines is a modification (its `name`
-    // string, associated values, or position changed) or a pure deletion - not a new pixel.
-    const removedCases = new Set(
-        diff.removed.split(/\n/).map(caseIdentifier).filter((id): id is string => id !== null)
+    // Every case identifier that existed anywhere in the file before this PR. Comparing only
+    // against removed diff lines would misfire on a PR that adds a brand new switch statement
+    // over already-existing cases (e.g. a fresh per-case property) - that reintroduces those
+    // identifiers as "added" lines without removing anything, since no prior switch existed to
+    // remove lines from.
+    const existingCases = new Set(
+        diff.before.split(/\n/).map(caseIdentifier).filter((id): id is string => id !== null)
     );
 
     const newCases: string[] = [];
     for (const line of diff.added.split(/\n/)) {
         const identifier = caseIdentifier(line);
-        if (identifier && !removedCases.has(identifier)) {
+        if (identifier && !existingCases.has(identifier)) {
             newCases.push(line.replace(/^\+\s*/, "").trim());
         }
     }
@@ -835,6 +839,7 @@ export default async () => {
     await pixelNamePrefix()
     await debugViewVerbatimText()
     await legacyPixelUsage()
+    await pixelKitSingletonUsage()
     await noNewPixelEventCases()
     await snapshotSubmodulePointer()
 }

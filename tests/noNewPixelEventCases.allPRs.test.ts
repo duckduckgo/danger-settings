@@ -9,12 +9,13 @@ const PIXEL_EVENT_FILE = "iOS/Core/PixelEvent.swift"
 beforeEach(() => {
     dm.addedLines = ""
     dm.removedLines = ""
+    dm.beforeContent = ""
     dm.fail = jest.fn().mockReturnValue(true);
 
     dm.danger = {
         git: {
             diffForFile: async (_filename) => {
-                return { added: dm.addedLines, removed: dm.removedLines }
+                return { added: dm.addedLines, removed: dm.removedLines, before: dm.beforeContent }
             },
             modified_files: [PIXEL_EVENT_FILE],
             created_files: []
@@ -102,6 +103,10 @@ describe("no new PixelEvent.swift cases check", () => {
     })
 
     it("does not fail when modifying an existing case's name string", async () => {
+        dm.beforeContent = `
+        case appLaunch
+        case .appLaunch: return "m_app_launch"
+        `
         dm.removedLines = `
 -        case .appLaunch: return "m_app_launch"
         `
@@ -114,11 +119,31 @@ describe("no new PixelEvent.swift cases check", () => {
     })
 
     it("does not fail when modifying an existing case's associated values", async () => {
+        dm.beforeContent = `
+        case widgetError(error: Error)
+        `
         dm.removedLines = `
 -        case widgetError(error: Error)
         `
         dm.addedLines = `
 +        case widgetError(error: Error, isRetry: Bool)
+        `
+
+        await noNewPixelEventCases()
+        expect(dm.fail).not.toHaveBeenCalled()
+    })
+
+    it("does not fail when a new switch arm reuses a pre-existing case with no removed lines", async () => {
+        // Simulates a brand new per-case property added over cases that already existed in
+        // the file - nothing is removed, so the old removed-lines comparison would have
+        // misflagged `appLaunch` as new even though it's unrelated to this switch.
+        dm.beforeContent = `
+        case appLaunch
+        case appLaunchFromWidget
+        `
+        dm.addedLines = `
++        case .appLaunch: return .foreground
++        case .appLaunchFromWidget: return .widget
         `
 
         await noNewPixelEventCases()
