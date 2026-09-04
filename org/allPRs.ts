@@ -554,14 +554,6 @@ export const legacyPixelUsage = async () => {
     const excludedFiles = new Set([
         "iOS/Core/Pixel.swift",
         "iOS/Core/PixelEvent.swift",
-        "iOS/Core/PixelFiring.swift",
-        "iOS/Core/PixelFiringAsync.swift",
-        "iOS/Core/DailyPixel.swift",
-        "iOS/Core/DailyPixelFiring.swift",
-        "iOS/Core/UniquePixel.swift",
-        "iOS/Core/TimedPixel.swift",
-        "iOS/Core/PersistentPixel.swift",
-        "iOS/Core/PersistentPixelStoring.swift",
     ]);
 
     // Tests and mocks exercise the legacy types by design.
@@ -623,6 +615,130 @@ export const legacyPixelUsage = async () => {
          "(`Pixel`, `DailyPixel`, `UniquePixel`, `TimedPixel`, and `PersistentPixel` are deprecated).\n" +
         "See https://app.asana.com/1/137249556945/project/1208546505108826/task/1216768405353137?focus=true\n\n" +
         `Found these new uses:\n${list}`
+    );
+}
+
+export const pixelKitSingletonUsage = async () => {
+    // PixelKit lives only in apple-browsers, so scope the check to that repo.
+    if (danger.github?.thisPR?.repo !== "apple-browsers") return;
+
+    // PixelKit's own sources declare the static entry points and legitimately reach for
+    // `Self.shared`; its tests drive the singleton on purpose (`setUp` then `fire`).
+    const isPixelKitPackage = (file: string) => file.includes("SharedPackages/PixelKit/");
+
+    // Tests, test utilities and mocks may fire through the singleton by design. Any path
+    // component mentioning Test or Mock is treated as such - in this repo that only ever names
+    // test targets and test-support modules (`DuckDuckGoTests`, `UnitTests`, `SharedTestUtils`,
+    // `VPNTestUtils`, `...Mocks`), never production code.
+    const isTestOrMock = (file: string) =>
+        file.split("/").some(component => component.includes("Test") || component.includes("Mock"));
+
+    const changedFiles = [
+        ...danger.git.modified_files,
+        ...danger.git.created_files
+    ].filter(file =>
+        file.endsWith(".swift") &&
+        !isPixelKitPackage(file) &&
+        !isTestOrMock(file)
+    );
+
+    // Matches an added, non-comment line that fires straight through the singleton, in either
+    // shape it takes:
+    //   PixelKit.fire(...)          / PixelKit.fireAsync(...)          - static shortcut
+    //   PixelKit.shared?.fire(...)  / PixelKit.shared!.fireAsync(...)  - explicit singleton
+    //
+    // A bare `PixelKit.shared` is deliberately NOT matched. Handing it to a collaborator is the
+    // sanctioned injection seam and its most common use by far, whether as a default argument
+    // (`init(pixelFiring: any PixelKitFiring = PixelKit.shared)`) or at a composition root. Only
+    // reaching for the singleton at the point of firing skips the seam.
+    const singletonFireRegex =
+        /^\+(?!\s*\/\/).*\bPixelKit\s*\.\s*(?:shared\s*[?!]?\s*\.\s*)?fire(?:Async)?\s*\(/;
+
+    const offences: { file: string; snippet: string }[] = [];
+
+    for (const file of changedFiles) {
+        const diff = await danger.git.diffForFile(file);
+        const addedLines = diff?.added.split(/\n/);
+        if (!addedLines) continue;
+
+        for (const line of addedLines) {
+            if (singletonFireRegex.test(line)) {
+                offences.push({ file, snippet: line.replace(/^\+\s*/, "").trim() });
+            }
+        }
+    }
+
+    if (offences.length === 0) return;
+
+    const list = offences
+        .map(o => `- \`${o.file}\`: \`${o.snippet}\``)
+        .join("\n");
+    warn(
+        "Firing a pixel straight through the `PixelKit` singleton leaves the call site untestable. " +
+        "Inject a `PixelKitFiring` (the exported alias for PixelKit's `PixelFiring` protocol) and " +
+        "call `fire` on it instead:\n" +
+        "```swift\n" +
+        "init(pixelFiring: any PixelKitFiring = PixelKit.shared) { self.pixelFiring = pixelFiring }\n" +
+        "...\n" +
+        "pixelFiring.fire(SomePixel.event, frequency: .daily)\n" +
+        "```\n" +
+        "Passing `PixelKit.shared` as that dependency is fine, and is what the default argument " +
+        "above does. It is reaching for the singleton at the point of firing that this flags.\n" +
+        "See `SharedPackages/PixelKit/Sources/PixelKit/PixelFiring.swift` for the protocol, and the\n" +
+        "singleton section of `.cursor/rules/anti-patterns.mdc` for why the seam matters.\n\n" +
+        `Found these new direct singleton fires:\n${list}`
+    );
+}
+
+export const noNewPixelEventCases = async () => {
+    // This file is iOS-only, so scope the check to apple-browsers.
+    if (danger.github?.thisPR?.repo !== "apple-browsers") return;
+
+    const file = "iOS/Core/PixelEvent.swift";
+    const changedFiles = [
+        ...danger.git.modified_files,
+        ...danger.git.created_files
+    ];
+    if (!changedFiles.includes(file)) return;
+
+    const diff = await danger.git.diffForFile(file);
+    if (!diff) return;
+
+    // Matches a `case someName` (enum declaration) or `case .someName:` / `case .someName(...)`
+    // (a `name` switch arm, or any other per-case switch), with an optional leading `+`/`-` diff
+    // marker so the same matcher works on raw file content and on diff lines alike. Associated
+    // values after the identifier are ignored - only the case identifier matters here.
+    const caseIdentifier = (line: string) => {
+        const match = line.match(/^[+-]?\s*case\s+\.?(\w+)/);
+        return match ? match[1] : null;
+    };
+
+    // Every case identifier that existed anywhere in the file before this PR. Comparing only
+    // against removed diff lines would misfire on a PR that adds a brand new switch statement
+    // over already-existing cases (e.g. a fresh per-case property) - that reintroduces those
+    // identifiers as "added" lines without removing anything, since no prior switch existed to
+    // remove lines from.
+    const existingCases = new Set(
+        diff.before.split(/\n/).map(caseIdentifier).filter((id): id is string => id !== null)
+    );
+
+    const newCases: string[] = [];
+    for (const line of diff.added.split(/\n/)) {
+        const identifier = caseIdentifier(line);
+        if (identifier && !existingCases.has(identifier)) {
+            newCases.push(line.replace(/^\+\s*/, "").trim());
+        }
+    }
+
+    if (newCases.length === 0) return;
+
+    const list = newCases.map(snippet => `- \`${snippet}\``).join("\n");
+    fail(
+        `\`${file}\` is deprecated for new pixels - its own top-of-file notice says not to add any more here. ` +
+        "Define new iOS pixels as a separate type conforming to `PixelKit.Event` instead.\n\n" +
+        `Found what looks like new case(s):\n${list}\n\n` +
+        "Modifying an existing case (its `name` string, associated values, etc.) or removing one is fine - " +
+        "this check only blocks a case identifier that didn't exist in the file before this PR."
     );
 }
 
@@ -723,5 +839,7 @@ export default async () => {
     await pixelNamePrefix()
     await debugViewVerbatimText()
     await legacyPixelUsage()
+    await pixelKitSingletonUsage()
+    await noNewPixelEventCases()
     await snapshotSubmodulePointer()
 }

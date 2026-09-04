@@ -139,8 +139,8 @@ describe("legacy pixel usage checks", () => {
         expect(dm.warn).not.toHaveBeenCalled()
     })
 
-    it("does not warn when the legacy definition files themselves change", async () => {
-        dm.danger.git.modified_files = ["iOS/Core/PersistentPixel.swift"]
+    it("does not warn when the pixel catalogue files themselves change", async () => {
+        dm.danger.git.modified_files = ["iOS/Core/PixelEvent.swift"]
         dm.danger.git.created_files = []
         dm.addedLines = `
 +        Pixel.fire(pixel: pixel, error: error)
