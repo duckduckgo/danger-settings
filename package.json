@@ -1,5 +1,6 @@
 {
   "license": "GPL-2.0-or-later",
+  "packageManager": "yarn@1.22.22",
   "scripts": {
     "test": "jest"
   },
