@@ -288,15 +288,12 @@ export const releaseAndHotfixBranchBSKChangeWarning = async () => {
 }
 
 export const featureFlagAsanaLink = async () => {
-    const featureFlagFiles = [
-        "iOS/Core/FeatureFlag.swift",
-        "macOS/LocalPackages/FeatureFlags/Sources/FeatureFlags/FeatureFlag.swift"
-    ];
+    const featureFlagFilePattern = /^(iOS|macOS)\/.*\/FeatureFlag\.swift$/;
 
     const changedFiles = [
         ...danger.git.modified_files,
         ...danger.git.created_files
-    ].filter(file => featureFlagFiles.includes(file));
+    ].filter(file => featureFlagFilePattern.test(file));
 
     if (changedFiles.length === 0) return;
 
