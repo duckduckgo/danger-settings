@@ -2,6 +2,10 @@ jest.mock("danger", () => jest.fn())
 import danger from 'danger'
 const dm = danger as any;
 
+jest.mock("child_process", () => ({ execFileSync: jest.fn() }))
+import { execFileSync } from 'child_process'
+const execFileSyncMock = execFileSync as jest.Mock;
+
 import { featureFlagAsanaLink } from '../org/allPRs'
 
 // Helper to build a structuredDiff from a raw unified diff string.
@@ -32,6 +36,7 @@ function buildStructuredDiff(rawDiff: string) {
 }
 
 beforeEach(() => {
+    execFileSyncMock.mockReset()
     dm.rawDiff = ""
     dm.warn = jest.fn().mockReturnValue(true);
 
@@ -42,7 +47,7 @@ beforeEach(() => {
                 return buildStructuredDiff(dm.rawDiff);
             },
             modified_files: [
-                "iOS/Core/FeatureFlag.swift"
+                "iOS/LocalPackages/FeatureFlags-iOS/Sources/FeatureFlags/FeatureFlag.swift"
             ],
             created_files: []
         }
@@ -130,7 +135,7 @@ describe("Feature flag Asana link checks", () => {
 
     it("works with macOS feature flag file", async () => {
         dm.danger.git.modified_files = [
-            "macOS/LocalPackages/FeatureFlags/Sources/FeatureFlags/FeatureFlag.swift"
+            "macOS/LocalPackages/FeatureFlags-macOS/Sources/FeatureFlags/FeatureFlag.swift"
         ]
         dm.rawDiff = `@@ -10,6 +10,8 @@ enum FeatureFlag {
 +    /// https://app.asana.com/1/137249556945/project/1211834678943996/task/123456789
@@ -142,13 +147,113 @@ describe("Feature flag Asana link checks", () => {
 
     it("warns for macOS feature flag file with missing link", async () => {
         dm.danger.git.modified_files = [
-            "macOS/LocalPackages/FeatureFlags/Sources/FeatureFlags/FeatureFlag.swift"
+            "macOS/LocalPackages/FeatureFlags-macOS/Sources/FeatureFlags/FeatureFlag.swift"
         ]
         dm.rawDiff = `@@ -10,6 +10,7 @@ enum FeatureFlag {
 +    case macOSFeature`
 
         await featureFlagAsanaLink()
         expect(dm.warn).toHaveBeenCalled()
+    })
+
+    it("matches the feature flag file wherever it lives inside the platform directory", async () => {
+        dm.danger.git.modified_files = [
+            "iOS/SomeFutureLocation/FeatureFlag.swift"
+        ]
+        dm.rawDiff = `@@ -10,6 +10,7 @@ enum FeatureFlag {
++    case relocatedFeature`
+
+        await featureFlagAsanaLink()
+        expect(dm.warn).toHaveBeenCalled()
+    })
+
+    it("does not match a feature flag file outside the platform directories", async () => {
+        dm.danger.git.modified_files = [
+            "SharedPackages/SomePackage/Sources/SomePackage/FeatureFlag.swift"
+        ]
+        dm.rawDiff = `@@ -10,6 +10,7 @@ enum FeatureFlag {
++    case sharedFeature`
+
+        await featureFlagAsanaLink()
+        expect(dm.warn).not.toHaveBeenCalled()
+    })
+
+    it("does not match a prefixed feature flag file", async () => {
+        dm.danger.git.modified_files = [
+            "iOS/LocalPackages/SomePackage/Sources/SomePackage/SomeFeatureFlag.swift"
+        ]
+        dm.rawDiff = `@@ -10,6 +10,7 @@ enum FeatureFlag {
++    case prefixedFileFeature`
+
+        await featureFlagAsanaLink()
+        expect(dm.warn).not.toHaveBeenCalled()
+    })
+
+    it("checks newly created feature flag files", async () => {
+        dm.danger.git.modified_files = []
+        dm.danger.git.created_files = [
+            "macOS/LocalPackages/FeatureFlags-macOS/Sources/FeatureFlags/FeatureFlag.swift"
+        ]
+        dm.rawDiff = `@@ -0,0 +1,3 @@ enum FeatureFlag {
++    case brandNewFeature`
+
+        await featureFlagAsanaLink()
+        expect(dm.warn).toHaveBeenCalled()
+    })
+
+    describe("when the pattern matches no changed file", () => {
+        const iOSFile = "iOS/LocalPackages/FeatureFlags-iOS/Sources/FeatureFlags/FeatureFlag.swift"
+        const macOSFile = "macOS/LocalPackages/FeatureFlags-macOS/Sources/FeatureFlags/FeatureFlag.swift"
+
+        beforeEach(() => {
+            dm.danger.git.modified_files = ["SomeOtherFile.swift"]
+            dm.danger.github = {
+                thisPR: {
+                    repo: "apple-browsers"
+                }
+            }
+            execFileSyncMock.mockReturnValue([iOSFile, macOSFile, "iOS/Core/Bookmarks.swift"].join("\n"))
+        })
+
+        it("does not warn when the repo still holds a matching file", async () => {
+            await featureFlagAsanaLink()
+            expect(dm.warn).not.toHaveBeenCalled()
+        })
+
+        it("does not warn when only one platform holds a matching file", async () => {
+            execFileSyncMock.mockReturnValue([macOSFile].join("\n"))
+
+            await featureFlagAsanaLink()
+            expect(dm.warn).not.toHaveBeenCalled()
+        })
+
+        it("warns when no file in the repo matches the pattern", async () => {
+            execFileSyncMock.mockReturnValue(["iOS/Core/FeatureFlag.swift.bak", "SharedPackages/Foo/FeatureFlag.swift"].join("\n"))
+
+            await featureFlagAsanaLink()
+            expect(dm.warn).toHaveBeenCalledTimes(1)
+            expect(dm.warn.mock.calls[0][0]).toContain("featureFlagFilePattern")
+        })
+
+        it("does not warn in repos that do not hold the flag enums", async () => {
+            dm.danger.github.thisPR.repo = "macos-network-protection"
+            execFileSyncMock.mockReturnValue("")
+
+            await featureFlagAsanaLink()
+            expect(dm.warn).not.toHaveBeenCalled()
+            expect(execFileSyncMock).not.toHaveBeenCalled()
+        })
+
+        it("does not search the repo when the pattern matched a changed file", async () => {
+            dm.danger.git.modified_files = [iOSFile]
+            dm.rawDiff = `@@ -10,6 +10,7 @@ enum FeatureFlag {
++    case myNewFeature`
+
+            await featureFlagAsanaLink()
+            expect(execFileSyncMock).not.toHaveBeenCalled()
+            expect(dm.warn).toHaveBeenCalledTimes(1)
+            expect(dm.warn.mock.calls[0][0]).toContain("myNewFeature")
+        })
     })
 
     it("does not warn when diff is empty", async () => {
