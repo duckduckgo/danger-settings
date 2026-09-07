@@ -1,4 +1,5 @@
 import {fail, warn, message, danger} from "danger"
+import {execFileSync} from "child_process"
 
 export const prSize = async () => {
     // Define file types to exclude for iOS and macOS projects
@@ -287,15 +288,27 @@ export const releaseAndHotfixBranchBSKChangeWarning = async () => {
     warn(`Please check whether the BSK changes on this branch need to be merged to the other platform's release/hotfix branch`);
 }
 
-export const featureFlagAsanaLink = async () => {
-    const featureFlagFilePattern = /^(iOS|macOS)\/.*\/FeatureFlag\.swift$/;
+const featureFlagFilePattern = /^(iOS|macOS)\/.*\/FeatureFlag\.swift$/;
 
+function warnIfNoFeatureFlagFileExists() {
+    if (danger.github?.thisPR?.repo !== "apple-browsers") return;
+
+    const trackedFiles = execFileSync("git", ["ls-files"], { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
+    if (trackedFiles.split("\n").some(file => featureFlagFilePattern.test(file))) return;
+
+    warn(`No file matching \`${featureFlagFilePattern}\` exists in the repo, so the feature flag Asana link check cannot run. If the feature flag enums moved, update \`featureFlagFilePattern\` in \`org/allPRs.ts\` in [danger-settings](https://github.com/duckduckgo/danger-settings).`);
+}
+
+export const featureFlagAsanaLink = async () => {
     const changedFiles = [
         ...danger.git.modified_files,
         ...danger.git.created_files
     ].filter(file => featureFlagFilePattern.test(file));
 
-    if (changedFiles.length === 0) return;
+    if (changedFiles.length === 0) {
+        warnIfNoFeatureFlagFileExists();
+        return;
+    }
 
     const asanaTaskUrlRegex = /^\/\/\/\s*https:\/\/app\.asana\.com\/1\/137249556945\/project\/1211834678943996\/task\/\d+(\?\S*)?\s*$/;
     const casesWithInvalidLinks: { file: string; caseName: string }[] = [];
