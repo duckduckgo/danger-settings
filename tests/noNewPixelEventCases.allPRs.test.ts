@@ -93,9 +93,13 @@ describe("no new PixelEvent.swift cases check", () => {
         expect(dm.fail).toHaveBeenCalledTimes(1)
     })
 
+    // The rule reads `diff.before` and `diff.added` only, never `diff.removed`, so a removal
+    // registers as an identifier that is in `before` and absent from `added`. Driving these
+    // tests through `removedLines` would assert nothing.
     it("does not fail when only removing a case", async () => {
-        dm.removedLines = `
--        case appLaunchFromWidget
+        dm.beforeContent = `
+        case appLaunchFromWidget
+        case .appLaunchFromWidget: return "m_app_launch_widget"
         `
 
         await noNewPixelEventCases()
@@ -106,9 +110,6 @@ describe("no new PixelEvent.swift cases check", () => {
         dm.beforeContent = `
         case appLaunch
         case .appLaunch: return "m_app_launch"
-        `
-        dm.removedLines = `
--        case .appLaunch: return "m_app_launch"
         `
         dm.addedLines = `
 +        case .appLaunch: return "m_app_launch_v2"
@@ -121,9 +122,6 @@ describe("no new PixelEvent.swift cases check", () => {
     it("does not fail when modifying an existing case's associated values", async () => {
         dm.beforeContent = `
         case widgetError(error: Error)
-        `
-        dm.removedLines = `
--        case widgetError(error: Error)
         `
         dm.addedLines = `
 +        case widgetError(error: Error, isRetry: Bool)
@@ -148,6 +146,29 @@ describe("no new PixelEvent.swift cases check", () => {
 
         await noNewPixelEventCases()
         expect(dm.fail).not.toHaveBeenCalled()
+    })
+
+    it("reports only the new case when an existing one is touched in the same diff", async () => {
+        dm.beforeContent = `
+        case appLaunch
+        case .appLaunch: return "m_app_launch"
+        `
+        dm.addedLines = `
++        case appLaunch
++        case appLaunchFromWidget
++        case .appLaunch: return "m_app_launch_v2"
++        case .appLaunchFromWidget: return "m_app_launch_widget"
+        `
+
+        await noNewPixelEventCases()
+        expect(dm.fail).toHaveBeenCalledTimes(1)
+        const failMessage = dm.fail.mock.calls[0][0] as string
+        expect(failMessage).toContain("- `case appLaunchFromWidget`")
+        expect(failMessage).toContain("- `case .appLaunchFromWidget: return \"m_app_launch_widget\"`")
+        // The pre-existing case must not be listed. Matching on the full list entry matters:
+        // a bare "case appLaunch" is also a prefix of "case appLaunchFromWidget".
+        expect(failMessage).not.toContain("- `case appLaunch`")
+        expect(failMessage).not.toContain("- `case .appLaunch: return \"m_app_launch_v2\"`")
     })
 
     it("does not fail for commented-out additions", async () => {

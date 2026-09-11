@@ -553,12 +553,38 @@ export const pixelKitSingletonUsage = async () => {
     // `Self.shared`; its tests drive the singleton on purpose (`setUp` then `fire`).
     const isPixelKitPackage = (file: string) => file.includes("SharedPackages/PixelKit/");
 
-    // Tests, test utilities and mocks may fire through the singleton by design. Any path
-    // component mentioning Test or Mock is treated as such - in this repo that only ever names
-    // test targets and test-support modules (`DuckDuckGoTests`, `UnitTests`, `SharedTestUtils`,
-    // `VPNTestUtils`, `...Mocks`), never production code.
-    const isTestOrMock = (file: string) =>
-        file.split("/").some(component => component.includes("Test") || component.includes("Mock"));
+    // Tests, test utilities and mocks may fire through the singleton by design, so they are
+    // exempt. Matching a bare `Test` anywhere in the path is too broad: it also exempts shipping
+    // code that happens to test something other than itself, such as the VPN's
+    // `NetworkProtectionConnectionTester.swift` / `ConnectionTesting.swift`,
+    // `HitTestingToolbar.swift` (hit testing, a UI concept) and the `PerformanceTest` and
+    // `NetworkQualityMonitor` packages, which would then never be checked.
+    //
+    // A directory counts only when it names a test target (anything ending in `Tests`:
+    // `Tests`, `UnitTests`, `DuckDuckGoTests`, `UITests`), a mock (`Mocks`, `TestDoubles`,
+    // `MockVPNUIActionHandler`), a test-support module (`Test`/`Tests`/`Testing` followed by
+    // `Utils`/`Utilities`/`Support`/`Helpers`/`DBBuilder`, covering `SharedTestUtils`,
+    // `BookmarksTestsUtils`, `NetworkingTestingUtils`, `SharedTestUtilities`,
+    // `SnapshotTestingSupport`, `AppUpdaterTestHelpers` and `HistoryTestDBBuilder`), or a
+    // hyphenated test target (`sandbox-test-tool`, `tests-server`).
+    const isTestTargetDirectory = (component: string) =>
+        /Mock/.test(component) ||
+        /(?:Tests|TestDoubles|Test(?:s|ing)?(?:Utils|Utilities|Support|Helpers|DBBuilder))$/.test(component) ||
+        component.split("-").some(segment => segment === "test" || segment === "tests");
+
+    // A file is test scaffolding wherever it sits when its name ends in `Test`/`Tests`/`Mock`/
+    // `Mocks` (`PromoServiceFactory+Test.swift`), starts with `Tests`
+    // (`TestsClosureNavigationResponder.swift`, DEBUG-only scaffolding inside the app target), or
+    // mentions `Mock` at all. A leading singular `Test` is deliberately not enough:
+    // `TestResult.swift` and `TestConfiguration.swift` are production files in the packages above.
+    const isTestFileName = (name: string) =>
+        /(?:Tests?|Mocks?)\.swift$/.test(name) || /^Tests[A-Z]/.test(name) || /Mock/.test(name);
+
+    const isTestOrMock = (file: string) => {
+        const components = file.split("/");
+        return components.slice(0, -1).some(isTestTargetDirectory) ||
+            isTestFileName(components[components.length - 1]);
+    };
 
     const changedFiles = [
         ...danger.git.modified_files,

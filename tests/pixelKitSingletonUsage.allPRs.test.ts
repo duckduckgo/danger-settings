@@ -184,6 +184,7 @@ describe("PixelKit singleton usage checks", () => {
         dm.danger.git.modified_files = [
             "iOS/DuckDuckGoTests/SomeFeature.swift",
             "macOS/UnitTests/SomeFeature.swift",
+            "macOS/UITests/SomeFeature.swift",
             "SharedPackages/VPN/Sources/VPNTestUtils/Helper.swift"
         ]
         dm.danger.git.created_files = ["macOS/DuckDuckGo/PixelKitMock+Verify.swift"]
@@ -193,6 +194,59 @@ describe("PixelKit singleton usage checks", () => {
 
         await pixelKitSingletonUsage()
         expect(dm.warn).not.toHaveBeenCalled()
+    })
+
+    it("does not warn in test-support modules whatever their naming variant", async () => {
+        // Every one of these is a real test-support module in apple-browsers, and they disagree
+        // on singular/plural and on Utils/Utilities/Support: the exemption has to cover the lot.
+        dm.danger.git.modified_files = [
+            "macOS/LocalPackages/TestUtilities/Sources/SharedTestUtilities/XCTestCase+PixelKit.swift",
+            "macOS/LocalPackages/TestUtilities/Sources/SharedSandboxTestUtilities/FileReadResult.swift",
+            "SharedPackages/BrowserServicesKit/Sources/BookmarksTestsUtils/BookmarkTree.swift",
+            "SharedPackages/BrowserServicesKit/Sources/NetworkingTestingUtils/OAuthTokensFactory.swift",
+            "SharedPackages/BrowserServicesKit/Sources/HistoryTestDBBuilder/HistoryTestDBBuilder.swift",
+            "iOS/LocalPackages/SetDefaultBrowser/Sources/SetDefaultBrowserTestSupport/Extensions/ResultExtensions.swift",
+            "macOS/LocalPackages/SnapshotTestingSupport/Sources/SnapshotTestingSupport/Helper.swift",
+            "macOS/DuckDuckGo/Tab/TabExtensions/TestsClosureNavigationResponder.swift",
+            "macOS/DuckDuckGo/Promotions/Promos/PromoServiceFactory+Test.swift",
+            "macOS/sandbox-test-tool/SandboxTestTool.swift"
+        ]
+        dm.danger.git.created_files = []
+        dm.addedLines = `
++        PixelKit.fire(GeneralPixel.appLaunch)
+        `
+
+        await pixelKitSingletonUsage()
+        expect(dm.warn).not.toHaveBeenCalled()
+    })
+
+    it("warns in production files that merely mention testing", async () => {
+        // These all ship in the apps, they just test something other than themselves. Exempting
+        // any path component containing `Test` used to hide them from this check entirely.
+        const productionFiles = [
+            "SharedPackages/VPN/Sources/VPN/Diagnostics/NetworkProtectionConnectionTester.swift",
+            "SharedPackages/VPN/Sources/VPN/Diagnostics/ConnectionTesting.swift",
+            "SharedPackages/VPN/Sources/VPN/KeyManagement/KeyExpirationTesting.swift",
+            "iOS/DuckDuckGo/HitTestingToolbar.swift",
+            "iOS/DuckDuckGo/UITestOverridesDebugView.swift",
+            "macOS/LocalPackages/NetworkQualityMonitor/Sources/NetworkQualityMonitor/Services/BandwidthTester.swift",
+            "macOS/LocalPackages/NetworkQualityMonitor/Sources/NetworkQualityMonitor/TestConfiguration.swift",
+            "macOS/LocalPackages/PerformanceTest/Sources/PerformanceTest/Core/PageLoadTester.swift",
+            "macOS/LocalPackages/PerformanceTest/Sources/PerformanceTest/Models/TestResult.swift"
+        ]
+
+        for (const file of productionFiles) {
+            dm.warn = jest.fn().mockReturnValue(true)
+            dm.danger.git.modified_files = [file]
+            dm.danger.git.created_files = []
+            dm.addedLines = `
++        PixelKit.fire(GeneralPixel.appLaunch)
+            `
+
+            await pixelKitSingletonUsage()
+            expect(dm.warn).toHaveBeenCalledTimes(1)
+            expect(dm.warn.mock.calls[0][0] as string).toContain(file)
+        }
     })
 
     it("lists every offending line across files in a single warning", async () => {
