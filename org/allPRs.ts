@@ -612,8 +612,8 @@ export const pixelKitSingletonUsage = async () => {
     //
     // A bare `PixelKit.shared` is deliberately NOT matched. Handing it to a collaborator is the
     // sanctioned injection seam and its most common use by far, whether as a default argument
-    // (`init(pixelFiring: any PixelKitFiring = PixelKit.shared)`) or at a composition root. Only
-    // reaching for the singleton at the point of firing skips the seam.
+    // (`init(pixelFiring: (any PixelKitFiring)? = PixelKit.shared)`) or at a composition root.
+    // Only reaching for the singleton at the point of firing skips the seam.
     const singletonFireRegex =
         /^\+(?!\s*\/\/).*\bPixelKit\s*\.\s*(?:shared\s*[?!]?\s*\.\s*)?fire(?:Async)?\s*\(/;
 
@@ -641,9 +641,9 @@ export const pixelKitSingletonUsage = async () => {
         "Inject a `PixelKitFiring` (the exported alias for PixelKit's `PixelFiring` protocol) and " +
         "call `fire` on it instead:\n" +
         "```swift\n" +
-        "init(pixelFiring: any PixelKitFiring = PixelKit.shared) { self.pixelFiring = pixelFiring }\n" +
+        "init(pixelFiring: (any PixelKitFiring)? = PixelKit.shared) { self.pixelFiring = pixelFiring }\n" +
         "...\n" +
-        "pixelFiring.fire(SomePixel.event, frequency: .daily)\n" +
+        "pixelFiring?.fire(SomePixel.event, frequency: .daily)\n" +
         "```\n" +
         "Passing `PixelKit.shared` as that dependency is fine, and is what the default argument " +
         "above does. It is reaching for the singleton at the point of firing that this flags.\n" +
