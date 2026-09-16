@@ -106,7 +106,7 @@ describe("PixelKit singleton usage checks", () => {
 
     it("does not warn when PixelKit.shared is injected as a dependency", async () => {
         dm.addedLines = `
-+    init(pixelFiring: any PixelKitFiring = PixelKit.shared) {
++    init(pixelFiring: (any PixelKitFiring)? = PixelKit.shared) {
 +        self.pixelFiring = pixelFiring
 +    }
 +    let telemetry = Telemetry(pixelFiring: PixelKit.shared)
