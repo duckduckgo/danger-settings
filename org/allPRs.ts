@@ -1,4 +1,4 @@
-import {fail, warn, message, danger} from "danger"
+import {fail, warn, message, markdown, danger} from "danger"
 import {execFileSync} from "child_process"
 
 export const prSize = async () => {
@@ -783,6 +783,200 @@ export const snapshotSubmodulePointer = async () => {
     }
 }
 
+// Pixel privacy gate: pixel changes need a PixelDefinitions update and the privacy review label.
+// A best-effort heuristic and a self-triage reminder, not a validator of what the definitions say.
+// See https://app.asana.com/1/137249556945/project/1201392122292466/task/1219449170013612
+
+const privacyReviewLabel = "privacy review required";
+const skipPixelCheckLabel = "skip pixel check";
+const pixelProtocols = /\b(?:PixelKit\.Event|PixelKitEvent|WideEventData|WideEventDataMeasuringInterval)\b/;
+const pixelDefinitionsPath = /^(iOS|macOS)\/PixelDefinitions\/(pixels|wide_events)\//;
+const swiftTestPath = /(^|\/)(Tests?|UnitTests|IntegrationTests|UITests|DuckDuckGoTests|TestingSupport|TestUtils|Mocks?)(\/|$)|Tests?\.swift$|Mock[^/]*\.swift$/;
+const pixelFireWithParameters = /\.fire\w*\(.*(parameters|params)|withAdditionalParameters/i;
+
+type PixelCodeChange = { side: "+" | "-", path: string, line: string, key: string };
+type LineRange = [number, number];
+
+export const pixelPrivacyGate = async () => {
+    if (danger.github?.thisPR?.repo !== "apple-browsers") return;
+
+    const changedFiles = [
+        ...danger.git.modified_files,
+        ...danger.git.created_files,
+        ...danger.git.deleted_files
+    ];
+    const definitionFiles = changedFiles.filter(file => pixelDefinitionsPath.test(file));
+    const codeChanges = await pixelCodeChanges(changedFiles.filter(isSwiftSource));
+    if (codeChanges.length === 0 && definitionFiles.length === 0) return;
+
+    const labels = (danger.github?.issue?.labels ?? []).map(label => label.name);
+    if (labels.includes(skipPixelCheckLabel)) return;
+
+    const hasCodeChanges = codeChanges.length > 0;
+    const hasDefinitionChanges = definitionFiles.length > 0;
+    const onlyRemovesPixels = codeChanges.every(change => change.side === "-") && !(await anyLinesAdded(definitionFiles));
+
+    if (hasCodeChanges && !hasDefinitionChanges) {
+        fail(
+            "Pixel code changed but nothing under `iOS/PixelDefinitions` or `macOS/PixelDefinitions` did. Update the definitions. " +
+            `If none of the lines below changes what a pixel sends, add the \`${skipPixelCheckLabel}\` label instead.`
+        );
+    }
+    if (!onlyRemovesPixels && !labels.includes(privacyReviewLabel)) {
+        fail(hasCodeChanges
+            ? `Pixels were added or changed. Add the \`${privacyReviewLabel}\` label to request a privacy review.`
+            : `Pixel definitions changed. If this changes what a pixel sends, add the \`${privacyReviewLabel}\` label. ` +
+              `If it only fixes descriptions or validation, add the \`${skipPixelCheckLabel}\` label instead.`
+        );
+    }
+    if (hasCodeChanges) {
+        markdown(pixelChangesReport(codeChanges, hasDefinitionChanges));
+    }
+}
+
+function isSwiftSource(file: string) {
+    return file.endsWith(".swift") && !swiftTestPath.test(file);
+}
+
+async function anyLinesAdded(files: string[]) {
+    for (const file of files) {
+        if ((await danger.git.diffForFile(file))?.added) return true;
+    }
+    return false;
+}
+
+async function pixelCodeChanges(files: string[]): Promise<PixelCodeChange[]> {
+    const knownTypes = pixelTypeNames();
+    const typeBodyChanges: PixelCodeChange[] = [];
+    const callSiteChanges: PixelCodeChange[] = [];
+
+    for (const file of files) {
+        const structuredDiff = await danger.git.structuredDiffForFile(file);
+        if (!structuredDiff) continue;
+        const diff = await danger.git.diffForFile(file);
+        const before = structuredDiff.fromPath && structuredDiff.fromPath !== file
+            ? await danger.github.utils.fileContents(structuredDiff.fromPath, undefined, danger.git.base)
+            : diff?.before;
+        const rangesBefore = pixelTypeRanges(before ?? "", knownTypes);
+        const rangesAfter = pixelTypeRanges(diff?.after ?? "", knownTypes);
+
+        const changes = structuredDiff.chunks.reduce((all, chunk) => all.concat(chunk.changes), [] as typeof structuredDiff.chunks[0]["changes"]);
+        for (const change of changes) {
+            if (change.type === "normal") continue;
+            const side = change.type === "add" ? "+" : "-";
+            const line = change.content.slice(1);
+            if (!isMeaningfulSwiftLine(line)) continue;
+
+            const ranges = side === "+" ? rangesAfter : rangesBefore;
+            const base = { side, path: file, line: line.trim() } as const;
+            if (ranges.some(([start, end]) => change.ln >= start && change.ln <= end)) {
+                typeBodyChanges.push({ ...base, key: line.replace(/\bself\./g, "").replace(/\s+/g, " ").trim() });
+            } else if (pixelFireWithParameters.test(line)) {
+                callSiteChanges.push({ ...base, key: pixelCallSignature(line) });
+            }
+        }
+    }
+    return [...withoutMovedLines(typeBodyChanges), ...withoutMovedLines(callSiteChanges)];
+}
+
+// Pixel types declared anywhere in the repo, so extending one in another file counts too.
+function pixelTypeNames(): Set<string> {
+    const names = new Set(["Pixel.Event"]);
+    let declarations = "";
+    try {
+        declarations = execFileSync("git", ["grep", "-hE", "(PixelKit\\.Event|PixelKitEvent|WideEventData)\\b", "--", "*.swift"], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+    } catch {
+        // git grep exits non-zero when nothing matches.
+    }
+    for (const [, name, conformances] of allMatches(/\b(?:enum|struct|class|actor|extension)\s+([A-Za-z_][\w.]*)\s*(?:<[^>{]*>)?\s*:([^{]*)/g, declarations)) {
+        if (pixelProtocols.test(conformances)) names.add(name);
+    }
+    return names;
+}
+
+// 1-based inclusive line ranges of each pixel type body.
+function pixelTypeRanges(source: string, knownTypes: Set<string>): LineRange[] {
+    const code = blankOutSwiftCommentsAndStrings(source);
+    const lineAt = (index: number) => code.slice(0, index).split("\n").length;
+    const ranges: LineRange[] = [];
+    for (const match of allMatches(/\b(enum|struct|class|actor|extension)\s+([A-Za-z_][\w.]*)([^{]*)\{/g, code)) {
+        const [declaration, kind, name, rest] = match;
+        const conformsToPixelProtocol = pixelProtocols.test(rest.replace(/<[^>]*>/g, ""));
+        const extendsPixelType = kind === "extension" && knownTypes.has(name);
+        const isIOSPixelEvent = kind === "enum" && name === "Event" && /extension\s+Pixel\s*\{/.test(code.slice(0, match.index));
+        if (!conformsToPixelProtocol && !extendsPixelType && !isIOSPixelEvent) continue;
+
+        const openingBrace = match.index! + declaration.length - 1;
+        ranges.push([lineAt(match.index!), lineAt(closingBraceIndex(code, openingBrace))]);
+    }
+    return ranges;
+}
+
+// Keeps line structure intact so line numbers still match the original source.
+function blankOutSwiftCommentsAndStrings(source: string) {
+    const blank = (text: string) => text.replace(/[^\n]/g, " ");
+    return source
+        .replace(/\/\*[\s\S]*?\*\//g, blank)
+        .replace(/\/\/[^\n]*/g, blank)
+        .replace(/"(?:\\.|[^"\\\n])*"/g, literal => `"${blank(literal.slice(1, -1))}"`);
+}
+
+function allMatches(regex: RegExp, text: string): RegExpExecArray[] {
+    const matches: RegExpExecArray[] = [];
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(text)) !== null) matches.push(match);
+    regex.lastIndex = 0;
+    return matches;
+}
+
+function closingBraceIndex(code: string, openingBrace: number) {
+    let depth = 0;
+    for (let i = openingBrace; i < code.length; i++) {
+        if (code[i] === "{") depth++;
+        else if (code[i] === "}" && --depth === 0) return i;
+    }
+    return code.length - 1;
+}
+
+function isMeaningfulSwiftLine(line: string) {
+    const trimmed = line.trim();
+    return trimmed !== "" && !/^(\/\/|\/\*|\*)/.test(trimmed) && !/^[{}()[\],]+$/.test(trimmed);
+}
+
+// The event and literal parameter keys, so re-spelling the same call through another API is not a change.
+function pixelCallSignature(line: string) {
+    const event = line.match(/fire\w*\(\s*(?:\w+:\s*)?\.?([\w.]+)/)?.[1].split(".").pop() ?? "";
+    const keys = allMatches(/"([\w-]+)"\s*:/g, line).map(match => match[1]).sort();
+    return `${event}|${keys.join(",")}`;
+}
+
+// Drops added/removed pairs with the same key: that code moved, it didn't change.
+function withoutMovedLines(changes: PixelCodeChange[]) {
+    const countBySide = (side: string) => {
+        const counts = new Map<string, number>();
+        for (const change of changes) {
+            if (change.side === side) counts.set(change.key, (counts.get(change.key) ?? 0) + 1);
+        }
+        return counts;
+    };
+    const unmatched = { "+": countBySide("-"), "-": countBySide("+") };
+    return changes.filter(change => {
+        const counterparts = unmatched[change.side];
+        const count = counterparts.get(change.key) ?? 0;
+        if (count === 0) return true;
+        counterparts.set(change.key, count - 1);
+        return false;
+    });
+}
+
+function pixelChangesReport(changes: PixelCodeChange[], hasDefinitionChanges: boolean) {
+    const lines = changes.map(change => `${change.side} ${change.line}    // ${change.path}`).join("\n");
+    const reminder = hasDefinitionChanges
+        ? "Make sure every pixel name and parameter change below is reflected in the definitions.\n\n"
+        : "";
+    return `### Pixel changes\n\n${reminder}<details><summary>Detected pixel code changes</summary>\n\n\`\`\`diff\n${lines}\n\`\`\`\n</details>`;
+}
+
 // Default run
 export default async () => {
     await prSize()
@@ -804,4 +998,5 @@ export default async () => {
     await pixelKitSingletonUsage()
     await noNewPixelEventCases()
     await snapshotSubmodulePointer()
+    await pixelPrivacyGate()
 }
