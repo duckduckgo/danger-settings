@@ -186,6 +186,48 @@ describe("pixel privacy gate", () => {
             expect(dm.fail).not.toHaveBeenCalled()
         })
 
+        it("ignores a call site migrated to a firing API that attaches the error to the event", async () => {
+            givenFiles({ "iOS/Model.swift": { changes: [
+                removed(10, `        Pixel.fire(pixel: .fileStoreWriteFailed, error: error, withAdditionalParameters: ["config": config])`),
+                added(10, `        PixelKit.fire(Pixel.Event.fileStoreWriteFailed.withError(error), options: .parameters(["config": config]))`),
+            ] } })
+
+            await pixelPrivacyGate()
+            expect(dm.fail).not.toHaveBeenCalled()
+        })
+
+        it("tells events with associated values apart", async () => {
+            givenLabels("privacy review required")
+            givenFiles({ ...{ [DEFINITIONS_FILE]: { changes: [added(1, `"sample": {`)] } }, "iOS/Model.swift": { changes: [
+                removed(10, `        Pixel.fire(pixel: .appLaunchTime(time: bucket), withAdditionalParameters: params)`),
+                added(10, `        PixelKit.fire(Pixel.Event.appShowTime(time: bucket), options: .parameters(params))`),
+            ] } })
+
+            await pixelPrivacyGate()
+            expect(dm.markdown.mock.calls[0][0]).toContain("appShowTime")
+        })
+
+        it("compares a call site split over several lines as a whole", async () => {
+            givenFiles({ "iOS/Model.swift": { changes: [
+                removed(10, `        Pixel.fire(pixel: .syncLogin,`),
+                removed(11, `                   withAdditionalParameters: parameters,`),
+                removed(12, `                   includedParameters: [.appVersion])`),
+                added(10, `        PixelKit.fire(Pixel.Event.syncLogin, options: .parameters(parameters))`),
+            ] } })
+
+            await pixelPrivacyGate()
+            expect(dm.fail).not.toHaveBeenCalled()
+        })
+
+        it("ignores declarations of pixel firing functions", async () => {
+            givenFiles({ "iOS/Core/PixelFiring.swift": { changes: [
+                removed(10, `    func fire(pixel: Pixel.Event, withAdditionalParameters params: [String: String]) {`),
+            ] } })
+
+            await pixelPrivacyGate()
+            expect(dm.fail).not.toHaveBeenCalled()
+        })
+
         it("detects a call site that sends a new parameter key", async () => {
             givenLabels("privacy review required")
             givenFiles({ "iOS/Model.swift": { changes: [
@@ -220,6 +262,7 @@ describe("pixel privacy gate", () => {
             expect(dm.fail).not.toHaveBeenCalled()
             expect(dm.markdown.mock.calls[0][0]).toContain("reflected in the definitions")
             expect(dm.markdown.mock.calls[0][0]).toContain("case shown")
+            expect(dm.markdown.mock.calls[0][0]).toContain("let us know](https://app.asana.com/")
         })
 
         it("fails for definitions-only changes without the label, explaining the bypass", async () => {
@@ -230,11 +273,65 @@ describe("pixel privacy gate", () => {
             expect(failMessages()[0]).toContain("skip pixel check")
         })
 
+        it("asks about the definitions when code only loses pixels but the definitions gain lines", async () => {
+            givenFiles({ ...pixelCodeRemoval, ...definitionsChange })
+
+            await pixelPrivacyGate()
+            expect(failMessages()).toHaveLength(1)
+            expect(failMessages()[0]).toContain("Pixel definitions changed")
+        })
+
         it("does not require the privacy label for removing pixels", async () => {
             givenFiles({ ...pixelCodeRemoval, ...definitionsRemoval })
 
             await pixelPrivacyGate()
             expect(dm.fail).not.toHaveBeenCalled()
+        })
+
+        it("lists files that only remove pixel code with a count instead of their lines", async () => {
+            givenFiles({ ...pixelCodeRemoval, ...definitionsRemoval })
+
+            await pixelPrivacyGate()
+            const report = dm.markdown.mock.calls[0][0]
+            expect(report).toContain(`- \`${PIXEL_FILE}\` −1`)
+            expect(report).not.toContain("```diff")
+        })
+
+        it("shows both sides of an edit so renamed pixels keep their old name", async () => {
+            givenLabels("privacy review required")
+            givenFiles({ ...definitionsChange, [PIXEL_FILE]: {
+                before: PIXEL_SOURCE, after: PIXEL_SOURCE,
+                changes: [removed(9, `        case .shown: return "sample_shown"`), added(9, `        case .shown: return "sample_displayed"`)],
+            } })
+
+            await pixelPrivacyGate()
+            expect(dm.markdown.mock.calls[0][0]).toContain(`- case .shown: return "sample_shown"\n+ case .shown: return "sample_displayed"`)
+        })
+
+        it("collapses long snippets and cuts them off", async () => {
+            givenLabels("privacy review required")
+            const longSource = `enum SamplePixel: PixelKit.Event {\n${Array.from({ length: 40 }, (_, i) => `    case event${i}`).join("\n")}\n}\n`
+            givenFiles({ ...definitionsChange, [PIXEL_FILE]: {
+                after: longSource,
+                changes: Array.from({ length: 40 }, (_, i) => added(i + 2, `    case event${i}`)),
+            } })
+
+            await pixelPrivacyGate()
+            const report = dm.markdown.mock.calls[0][0]
+            expect(report).toContain("<details><summary>")
+            expect(report).toContain("… 10 more lines.")
+        })
+
+        it("links each file to its place in the PR diff", async () => {
+            givenLabels("privacy review required")
+            dm.danger.github.pr = { html_url: "https://github.com/duckduckgo/apple-browsers/pull/1" }
+            givenFiles({ ...pixelCodeChange, ...definitionsChange })
+
+            await pixelPrivacyGate()
+            expect(dm.markdown.mock.calls[0][0]).toContain(
+                "[View in the diff](https://github.com/duckduckgo/apple-browsers/pull/1/files#diff-" +
+                require("crypto").createHash("sha256").update(PIXEL_FILE).digest("hex") + ")"
+            )
         })
 
         it("bypasses both rules with the skip label", async () => {
