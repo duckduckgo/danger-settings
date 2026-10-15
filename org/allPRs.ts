@@ -1007,9 +1007,8 @@ function pixelChangesReport(changes: PixelCodeChange[], hasDefinitionChanges: bo
 
     const sections = [
         "### Pixel changes",
-        hasDefinitionChanges
-            ? "Make sure every pixel name and parameter change below is reflected in the definitions."
-            : "These lines look like pixel code:",
+        "Changed lines that look like pixel code (not the full diff)." +
+            (hasDefinitionChanges ? "\n**Make sure every pixel name and parameter change is reflected in the definitions.**" : ""),
         ...editedFiles.map(file => pixelFileSnippet(file, shownLineCount <= pixelReportOpenLineLimit)),
     ];
     if (removalOnlyFiles.length > 0) {

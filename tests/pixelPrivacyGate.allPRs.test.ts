@@ -115,6 +115,16 @@ describe("pixel privacy gate", () => {
             expect(failMessages()[0]).toContain("skip pixel check")
         })
 
+        it("explains the report is not the full diff, without the reminder when definitions didn't change", async () => {
+            givenLabels("privacy review required")
+            givenFiles({ [PIXEL_FILE]: { after: PIXEL_SOURCE, changes: [added(4, "    case shown")] } })
+
+            await pixelPrivacyGate()
+            const report = dm.markdown.mock.calls[0][0]
+            expect(report).toContain("Changed lines that look like pixel code (not the full diff).")
+            expect(report).not.toContain("reflected in the definitions")
+        })
+
         it("ignores changes outside pixel types", async () => {
             givenFiles({ [PIXEL_FILE]: { before: PIXEL_SOURCE, after: PIXEL_SOURCE, changes: [added(16, `    let title = "Hi"`)] } })
 
@@ -260,7 +270,7 @@ describe("pixel privacy gate", () => {
 
             await pixelPrivacyGate()
             expect(dm.fail).not.toHaveBeenCalled()
-            expect(dm.markdown.mock.calls[0][0]).toContain("reflected in the definitions")
+            expect(dm.markdown.mock.calls[0][0]).toContain("Changed lines that look like pixel code (not the full diff).\n**Make sure every pixel name and parameter change is reflected in the definitions.**")
             expect(dm.markdown.mock.calls[0][0]).toContain("case shown")
             expect(dm.markdown.mock.calls[0][0]).toContain("let us know](https://app.asana.com/")
         })
