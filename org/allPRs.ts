@@ -1043,6 +1043,87 @@ function pixelFileDiffLink(path: string) {
     return prURL ? `[View in the diff](${prURL}/files#diff-${createHash("sha256").update(path).digest("hex")})` : "";
 }
 
+// New error types should adopt DDGError so they carry a stable domain, code and underlying-error
+// chain wherever they end up: pixels, logs or the UI.
+const errorProtocols = new Set(["Error", "LocalizedError", "CustomNSError", "RecoverableError"]);
+const errorTypeDeclaration =
+    /^\s*(?:@\w+(?:\([^)]*\))?\s+)*(?:(?:public|private|fileprivate|internal|package|open|final|indirect|nonisolated)\s+)*(?:enum|struct|class|actor|extension)\s+([A-Za-z_][\w.]*)\s*(?:<[^{]*?>)?\s*:\s*([^{]*)/;
+
+export const ddgErrorConformance = async () => {
+    // DDGError lives only in apple-browsers, so scope the check to that repo.
+    if (danger.github?.thisPR?.repo !== "apple-browsers") return;
+
+    const changedFiles = [
+        ...danger.git.modified_files,
+        ...danger.git.created_files
+    ].filter(isSwiftSource);
+    if (changedFiles.length === 0) return;
+
+    // A declaration removed anywhere in the PR was already there, so moving or editing a type
+    // (a moved file shows up as deleted plus created) does not count as a new one.
+    const existingTypes = new Set<string>();
+    const filesWithRemovals = [
+        ...danger.git.modified_files,
+        ...(danger.git.deleted_files ?? [])
+    ].filter(file => file.endsWith(".swift"));
+    for (const file of filesWithRemovals) {
+        const diff = await danger.git.diffForFile(file);
+        for (const line of diff?.removed?.split(/\n/) ?? []) {
+            const declaration = errorTypeConformance(line, "-");
+            if (declaration) existingTypes.add(declaration.name);
+        }
+    }
+
+    const offences: { file: string, snippet: string }[] = [];
+    for (const file of changedFiles) {
+        const diff = await danger.git.diffForFile(file);
+        for (const line of diff?.added?.split(/\n/) ?? []) {
+            const declaration = errorTypeConformance(line, "+");
+            if (!declaration || existingTypes.has(declaration.name)) continue;
+            if (declaration.conformances.includes("DDGError")) continue;
+            if (!declaration.conformances.some(conformance => errorProtocols.has(conformance))) continue;
+            offences.push({ file, snippet: line.replace(/^\+\s*/, "").trim() });
+        }
+    }
+
+    if (offences.length === 0) return;
+
+    const list = offences
+        .map(o => `- \`${o.file}\`: \`${o.snippet}\``)
+        .join("\n");
+    warn(
+        "New error types should conform to `DDGError` rather than plain `Error`, `LocalizedError` or `CustomNSError`. " +
+        "`DDGError` gives every error a stable domain and code and keeps the underlying-error chain, " +
+        "so it stays readable in pixels, logs and the UI:\n" +
+        "```swift\n" +
+        "enum SomeFeatureError: DDGError {\n" +
+        "    case failed(underlying: Error)\n" +
+        "\n" +
+        "    static var errorDomain: String { \"com.duckduckgo.someFeature\" }\n" +
+        "    var errorCode: Int { ... }\n" +
+        "    var underlyingError: Error? { ... }\n" +
+        "    var description: String { ... }\n" +
+        "}\n" +
+        "```\n" +
+        "See `SharedPackages/DDGError/Sources/DDGError/DDGError.swift`.\n\n" +
+        `Found these new error types:\n${list}`
+    );
+}
+
+// The declared type name and its conformances, for a non-comment diff line with the given marker.
+function errorTypeConformance(line: string, marker: "+" | "-") {
+    if (!line.startsWith(marker)) return null;
+    const code = line.slice(1).replace(/\/\/.*$/, "");
+    const match = code.match(errorTypeDeclaration);
+    if (!match) return null;
+    const conformances = match[2]
+        .split(/\bwhere\b/)[0]
+        .split(",")
+        .map(conformance => conformance.trim().split(".").pop() ?? "")
+        .filter(conformance => conformance.length > 0);
+    return { name: match[1], conformances };
+}
+
 // Default run
 export default async () => {
     await prSize()
@@ -1065,4 +1146,5 @@ export default async () => {
     await noNewPixelEventCases()
     await snapshotSubmodulePointer()
     await pixelPrivacyGate()
+    await ddgErrorConformance()
 }
