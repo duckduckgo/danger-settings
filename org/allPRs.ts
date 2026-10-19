@@ -1046,8 +1046,8 @@ function pixelFileDiffLink(path: string) {
 // New error types should adopt DDGError so they carry a stable domain, code and underlying-error
 // chain wherever they end up: pixels, logs or the UI.
 const errorProtocols = new Set(["Error", "LocalizedError", "CustomNSError", "RecoverableError"]);
-const errorTypeDeclaration =
-    /^\s*(?:@\w+(?:\([^)]*\))?\s+)*(?:(?:public|private|fileprivate|internal|package|open|final|indirect|nonisolated)\s+)*(?:enum|struct|class|actor|extension)\s+([A-Za-z_][\w.]*)\s*(?:<[^{]*?>)?\s*:\s*([^{]*)/;
+const typeDeclaration =
+    /^\s*(?:@\w+(?:\([^)]*\))?\s+)*(?:(?:public|private|fileprivate|internal|package|open|final|indirect|nonisolated)\s+)*(enum|struct|class|actor|extension)\s+([A-Za-z_][\w.]*)\s*(?:<[^{]*?>)?\s*(?::\s*([^{]*))?/;
 
 export const ddgErrorConformance = async () => {
     // DDGError lives only in apple-browsers, so scope the check to that repo.
@@ -1069,22 +1069,34 @@ export const ddgErrorConformance = async () => {
     for (const file of filesWithRemovals) {
         const diff = await danger.git.diffForFile(file);
         for (const line of diff?.removed?.split(/\n/) ?? []) {
-            const declaration = errorTypeConformance(line, "-");
-            if (declaration) existingTypes.add(declaration.name);
+            const declaration = parseTypeDeclaration(line, "-");
+            if (declaration && !declaration.isExtension) existingTypes.add(declaration.name);
         }
     }
 
-    const offences: { file: string, snippet: string }[] = [];
+    // Conformances are gathered per type across every added line, so a type that adopts DDGError
+    // in a separate extension is not flagged. Extensions only add to a type declared in this PR:
+    // on their own they may be extending an existing type whose declaration the diff doesn't show.
+    const types = new Map<string, { isDeclared: boolean, conformances: Set<string>, errorLine?: { file: string, snippet: string } }>();
     for (const file of changedFiles) {
         const diff = await danger.git.diffForFile(file);
         for (const line of diff?.added?.split(/\n/) ?? []) {
-            const declaration = errorTypeConformance(line, "+");
-            if (!declaration || existingTypes.has(declaration.name)) continue;
-            if (declaration.conformances.includes("DDGError")) continue;
-            if (!declaration.conformances.some(conformance => errorProtocols.has(conformance))) continue;
-            offences.push({ file, snippet: line.replace(/^\+\s*/, "").trim() });
+            const declaration = parseTypeDeclaration(line, "+");
+            if (!declaration) continue;
+            const type = types.get(declaration.name) ?? { isDeclared: false, conformances: new Set<string>() };
+            type.isDeclared ||= !declaration.isExtension;
+            declaration.conformances.forEach(conformance => type.conformances.add(conformance));
+            if (!type.errorLine && declaration.conformances.some(conformance => errorProtocols.has(conformance))) {
+                type.errorLine = { file, snippet: line.replace(/^\+\s*/, "").trim() };
+            }
+            types.set(declaration.name, type);
         }
     }
+
+    const offences = [...types.entries()]
+        .filter(([name, type]) => type.isDeclared && !existingTypes.has(name) && !type.conformances.has("DDGError"))
+        .map(([_name, type]) => type.errorLine)
+        .filter((errorLine): errorLine is { file: string, snippet: string } => errorLine !== undefined);
 
     if (offences.length === 0) return;
 
@@ -1110,18 +1122,20 @@ export const ddgErrorConformance = async () => {
     );
 }
 
-// The declared type name and its conformances, for a non-comment diff line with the given marker.
-function errorTypeConformance(line: string, marker: "+" | "-") {
+// The type a non-comment diff line with the given marker declares or extends, and its conformances.
+// Names are reduced to their last component, so `extension Outer.FooError` matches `enum FooError`.
+function parseTypeDeclaration(line: string, marker: "+" | "-") {
     if (!line.startsWith(marker)) return null;
     const code = line.slice(1).replace(/\/\/.*$/, "");
-    const match = code.match(errorTypeDeclaration);
+    const match = code.match(typeDeclaration);
     if (!match) return null;
-    const conformances = match[2]
+    const lastComponent = (name: string) => name.trim().split(".").pop() ?? "";
+    const conformances = (match[3] ?? "")
         .split(/\bwhere\b/)[0]
         .split(",")
-        .map(conformance => conformance.trim().split(".").pop() ?? "")
+        .map(lastComponent)
         .filter(conformance => conformance.length > 0);
-    return { name: match[1], conformances };
+    return { name: lastComponent(match[2]), isExtension: match[1] === "extension", conformances };
 }
 
 // Default run

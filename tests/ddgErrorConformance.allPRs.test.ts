@@ -54,7 +54,6 @@ describe("DDGError conformance check", () => {
         ["qualified protocol", "enum ParsingError: Swift.Error {"],
         ["attribute and modifiers", "@frozen public indirect enum TreeError: Error, Equatable {"],
         ["generic", "struct WrappedError<Underlying>: Error where Underlying: Sendable {"],
-        ["extension", "extension SomeLegacyType: Error {}"],
         ["brace on the next line", "enum NetworkError: Error, LocalizedError // comment"],
     ])("warns for a new %s declaration", async (_name, declaration) => {
         setDiff(SOURCE_FILE, `\n+    ${declaration}\n`)
@@ -80,6 +79,59 @@ describe("DDGError conformance check", () => {
         expect(warnMessage()).toContain("enum FirstError: Error {")
         expect(warnMessage()).toContain("private enum SecondError: Error {")
         expect(warnMessage()).toContain(otherFile)
+    })
+
+    it("does not warn when DDGError conformance is added in a separate extension", async () => {
+        const extensionFile = "SharedPackages/Feature/Sources/Feature/FooError+DDGError.swift"
+        dm.danger.git.created_files = [extensionFile]
+        setDiff(SOURCE_FILE, `
++enum FooError: Error {
++struct BarError: LocalizedError {
++extension BarError: DDGError {
+        `)
+        setDiff(extensionFile, `
++extension Feature.FooError: DDGError {
+        `)
+
+        await ddgErrorConformance()
+        expect(dm.warn).not.toHaveBeenCalled()
+    })
+
+    it("warns when a new type gets an error conformance in an extension", async () => {
+        setDiff(SOURCE_FILE, `
++enum FooError {
++    case failed
++}
++
++extension FooError: LocalizedError {
+        `)
+
+        await ddgErrorConformance()
+        expect(dm.warn).toHaveBeenCalledTimes(1)
+        expect(warnMessage()).toContain("extension FooError: LocalizedError {")
+        expect(warnMessage()).not.toContain("enum FooError {")
+    })
+
+    it("does not warn for an extension of a type declared outside the PR", async () => {
+        setDiff(SOURCE_FILE, `
++extension ExistingDDGError: LocalizedError {
++extension SomeLegacyType: Error {}
+        `)
+
+        await ddgErrorConformance()
+        expect(dm.warn).not.toHaveBeenCalled()
+    })
+
+    it("lists a type only once when several lines add error conformances", async () => {
+        setDiff(SOURCE_FILE, `
++enum FooError: Error {
++extension FooError: CustomNSError {
+        `)
+
+        await ddgErrorConformance()
+        expect(dm.warn).toHaveBeenCalledTimes(1)
+        expect(warnMessage()).toContain("enum FooError: Error {")
+        expect(warnMessage()).not.toContain("extension FooError: CustomNSError {")
     })
 
     it("does not warn for a new type conforming to DDGError", async () => {
