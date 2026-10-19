@@ -1043,6 +1043,101 @@ function pixelFileDiffLink(path: string) {
     return prURL ? `[View in the diff](${prURL}/files#diff-${createHash("sha256").update(path).digest("hex")})` : "";
 }
 
+// New error types should adopt DDGError so they carry a stable domain, code and underlying-error
+// chain wherever they end up: pixels, logs or the UI.
+const errorProtocols = new Set(["Error", "LocalizedError", "CustomNSError", "RecoverableError"]);
+const typeDeclaration =
+    /^\s*(?:@\w+(?:\([^)]*\))?\s+)*(?:(?:public|private|fileprivate|internal|package|open|final|indirect|nonisolated)\s+)*(enum|struct|class|actor|extension)\s+([A-Za-z_][\w.]*)\s*(?:<[^{]*?>)?\s*(?::\s*([^{]*))?/;
+
+export const ddgErrorConformance = async () => {
+    // DDGError lives only in apple-browsers, so scope the check to that repo.
+    if (danger.github?.thisPR?.repo !== "apple-browsers") return;
+
+    const changedFiles = [
+        ...danger.git.modified_files,
+        ...danger.git.created_files
+    ].filter(isSwiftSource);
+    if (changedFiles.length === 0) return;
+
+    // A declaration removed anywhere in the PR was already there, so moving or editing a type
+    // (a moved file shows up as deleted plus created) does not count as a new one.
+    const existingTypes = new Set<string>();
+    const filesWithRemovals = [
+        ...danger.git.modified_files,
+        ...(danger.git.deleted_files ?? [])
+    ].filter(file => file.endsWith(".swift"));
+    for (const file of filesWithRemovals) {
+        const diff = await danger.git.diffForFile(file);
+        for (const line of diff?.removed?.split(/\n/) ?? []) {
+            const declaration = parseTypeDeclaration(line, "-");
+            if (declaration && !declaration.isExtension) existingTypes.add(declaration.name);
+        }
+    }
+
+    // Conformances are gathered per type across every added line, so a type that adopts DDGError
+    // in a separate extension is not flagged. Extensions only add to a type declared in this PR:
+    // on their own they may be extending an existing type whose declaration the diff doesn't show.
+    const types = new Map<string, { isDeclared: boolean, conformances: Set<string>, errorLine?: { file: string, snippet: string } }>();
+    for (const file of changedFiles) {
+        const diff = await danger.git.diffForFile(file);
+        for (const line of diff?.added?.split(/\n/) ?? []) {
+            const declaration = parseTypeDeclaration(line, "+");
+            if (!declaration) continue;
+            const type = types.get(declaration.name) ?? { isDeclared: false, conformances: new Set<string>() };
+            type.isDeclared ||= !declaration.isExtension;
+            declaration.conformances.forEach(conformance => type.conformances.add(conformance));
+            if (!type.errorLine && declaration.conformances.some(conformance => errorProtocols.has(conformance))) {
+                type.errorLine = { file, snippet: line.replace(/^\+\s*/, "").trim() };
+            }
+            types.set(declaration.name, type);
+        }
+    }
+
+    const offences = [...types.entries()]
+        .filter(([name, type]) => type.isDeclared && !existingTypes.has(name) && !type.conformances.has("DDGError"))
+        .map(([_name, type]) => type.errorLine)
+        .filter((errorLine): errorLine is { file: string, snippet: string } => errorLine !== undefined);
+
+    if (offences.length === 0) return;
+
+    const list = offences
+        .map(o => `- \`${o.file}\`: \`${o.snippet}\``)
+        .join("\n");
+    warn(
+        "New error types should conform to `DDGError` rather than plain `Error`, `LocalizedError` or `CustomNSError`. " +
+        "`DDGError` gives every error a stable domain and code and keeps the underlying-error chain, " +
+        "so it stays readable in pixels, logs and the UI:\n" +
+        "```swift\n" +
+        "enum SomeFeatureError: DDGError {\n" +
+        "    case failed(underlying: Error)\n" +
+        "\n" +
+        "    static var errorDomain: String { \"com.duckduckgo.someFeature\" }\n" +
+        "    var errorCode: Int { ... }\n" +
+        "    var underlyingError: Error? { ... }\n" +
+        "    var description: String { ... }\n" +
+        "}\n" +
+        "```\n" +
+        "See `SharedPackages/DDGError/Sources/DDGError/DDGError.swift`.\n\n" +
+        `Found these new error types:\n${list}`
+    );
+}
+
+// The type a non-comment diff line with the given marker declares or extends, and its conformances.
+// Names are reduced to their last component, so `extension Outer.FooError` matches `enum FooError`.
+function parseTypeDeclaration(line: string, marker: "+" | "-") {
+    if (!line.startsWith(marker)) return null;
+    const code = line.slice(1).replace(/\/\/.*$/, "");
+    const match = code.match(typeDeclaration);
+    if (!match) return null;
+    const lastComponent = (name: string) => name.trim().split(".").pop() ?? "";
+    const conformances = (match[3] ?? "")
+        .split(/\bwhere\b/)[0]
+        .split(",")
+        .map(lastComponent)
+        .filter(conformance => conformance.length > 0);
+    return { name: lastComponent(match[2]), isExtension: match[1] === "extension", conformances };
+}
+
 // Default run
 export default async () => {
     await prSize()
@@ -1065,4 +1160,5 @@ export default async () => {
     await noNewPixelEventCases()
     await snapshotSubmodulePointer()
     await pixelPrivacyGate()
+    await ddgErrorConformance()
 }
