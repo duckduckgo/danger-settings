@@ -79,34 +79,6 @@ export const xcodeprojConfiguration_macOS = async () => {
     }
 }
 
-export const xcodeprojObjectVersion_macOS = async () => {
-    const projectFile = "macOS/DuckDuckGo-macOS.xcodeproj/project.pbxproj";
-    if (danger.git.modified_files.includes(projectFile)) {
-        let diff = await danger.git.diffForFile(projectFile);
-        let addedLines = diff?.added.split(/\n/);
-        // The regex is equal to:
-        // * plus sign
-        // * 1 or more tabulation keys
-        // * `objectVersion` identifier (key)
-        // * a space, an equality sign and a space
-        // * a number
-        // * a semicolon
-        //
-        // We're capturing the number and if it's greater than 60 (the max supported objectVersion), we fail the check.
-        //
-        // NOTE: We should remove this check once we're able to use buildable folders in the macOS Xcode project file.
-        //
-        const objectVersionMatch = addedLines?.find(value => {
-            const match = value.match(/^\+\t+objectVersion = ([0-9]+);$/);
-            console.log(value, match);
-            return match && parseInt(match[1]) > 60;
-        });
-        if (objectVersionMatch) {
-            fail("macOS Xcode project file needs to keep objectVersion at 60 - you may have added a buildable folder reference to the project file. Please replace it with a file group.");
-        }
-    }
-}
-
 export const singletons = async () => {
     const changedFiles = [
         ...danger.git.modified_files,
@@ -1143,7 +1115,6 @@ export default async () => {
     await prSize()
     await internalLink()
     await xcodeprojConfiguration_macOS()
-    await xcodeprojObjectVersion_macOS()
     await singletons()
     await userDefaultsWrapper()
     await remoteReleasableFeatureWarning()
