@@ -21,7 +21,10 @@ beforeEach(() => {
         github: {
             pr: {
                 additions: 200,
-                deletions: 10
+                deletions: 10,
+                base: {
+                    ref: "release/ios/7.245.0"
+                }
             },
             thisPR: {
                 repo: "iOS"
@@ -37,6 +40,28 @@ describe("Localized Strings checks", () => {
         await localizedStrings()
 
         expect(dm.message).not.toHaveBeenCalled()
+    })
+
+    it("does not message for a PR into a branch other than release or hotfix", async () => {
+        dm.danger.github.pr.base.ref = "main"
+        dm.addedLines = `
++    let title = NSLocalizedString("title", comment: "Title")
+        `
+
+        await localizedStrings()
+
+        expect(dm.message).not.toHaveBeenCalled()
+    })
+
+    it("messages for a PR into a hotfix branch", async () => {
+        dm.danger.github.pr.base.ref = "hotfix/macos/1.217.1"
+        dm.addedLines = `
++    let title = NSLocalizedString("title", comment: "Title")
+        `
+
+        await localizedStrings()
+
+        expect(dm.message).toHaveBeenCalled()
     })
 
     it("does not message with no diff", async () => {
