@@ -134,6 +134,9 @@ export const remoteReleasableFeatureWarning = async () => {
 }
 
 export const localizedStrings = async () => {
+    const baseBranch = danger.github.pr.base.ref;
+    if (!baseBranch.startsWith('release/') && !baseBranch.startsWith('hotfix/')) return;
+
     for (let file of danger.git.modified_files) {
         let diff = await danger.git.diffForFile(file);
         let addedLines = diff?.added.split(/\n/);
