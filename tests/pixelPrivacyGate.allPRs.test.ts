@@ -47,6 +47,18 @@ function givenLabels(...names: string[]) {
     dm.danger.github.issue.labels = names.map(name => ({ name }))
 }
 
+// Swift sources checked out for the PR, keyed by path, for the repo-wide search for existing calls.
+function givenRepoFiles(repoFiles: Record<string, string>) {
+    execFileSyncMock.mockImplementation((_command: string, args: string[]) => {
+        if (args[0] === "grep" && args.includes("-l")) {
+            const word = args[args.indexOf("-e") + 1]
+            return Object.keys(repoFiles).filter(path => new RegExp(`\\b${word}\\b`).test(repoFiles[path])).join("\n")
+        }
+        if (args[0] === "show") return repoFiles[args[1].replace(/^HEAD:/, "")] ?? ""
+        return ""
+    })
+}
+
 function failMessages(): string[] {
     return dm.fail.mock.calls.map(call => call[0] as string)
 }
@@ -247,6 +259,62 @@ describe("pixel privacy gate", () => {
 
             await pixelPrivacyGate()
             expect(failMessages()).toHaveLength(1)
+        })
+    })
+
+    describe("existing pixel calls", () => {
+        const intervalCall = [
+            `            pixelFiring?.fire(Pixel.Event.idleIntervalChanged,`,
+            `                              frequency: .dailyAndCount,`,
+            `                              options: .parameters(["idle_interval_seconds": String(interval.seconds)]))`,
+        ]
+        const settingsSource = `final class Settings {\n    func save() {\n        PixelKit.fire(Pixel.Event.idleIntervalChanged,\n                      frequency: .dailyAndCount,\n                      options: .parameters(["idle_interval_seconds": String(newValue.seconds)]))\n    }\n}\n`
+        const addedCall = (lines: string[]) => lines.map((line, index) => added(10 + index, line))
+
+        it("ignores an existing pixel fired with the same parameter keys from a new call site", async () => {
+            givenRepoFiles({ "iOS/Settings.swift": settingsSource, "iOS/Customization.swift": intervalCall.join("\n") })
+            givenFiles({ "iOS/Customization.swift": { changes: addedCall(intervalCall) } })
+
+            await pixelPrivacyGate()
+            expect(dm.fail).not.toHaveBeenCalled()
+            expect(dm.markdown).not.toHaveBeenCalled()
+        })
+
+        it("detects a new call site that sends a parameter key the existing call doesn't", async () => {
+            const withExtraKey = [`        pixelFiring?.fire(Pixel.Event.idleIntervalChanged, options: .parameters(["idle_interval_seconds": s, "source": "ntp"]))`]
+            givenRepoFiles({ "iOS/Settings.swift": settingsSource, "iOS/Customization.swift": withExtraKey.join("\n") })
+            givenFiles({ "iOS/Customization.swift": { changes: addedCall(withExtraKey) } })
+
+            await pixelPrivacyGate()
+            expect(failMessages()).toHaveLength(2)
+        })
+
+        it("does not count calls added by the PR itself as existing", async () => {
+            givenRepoFiles({ "iOS/A.swift": intervalCall.join("\n"), "iOS/B.swift": intervalCall.join("\n") })
+            givenFiles({
+                "iOS/A.swift": { changes: addedCall(intervalCall) },
+                "iOS/B.swift": { changes: addedCall(intervalCall) },
+            })
+
+            await pixelPrivacyGate()
+            expect(failMessages()).toHaveLength(2)
+        })
+
+        it("does not count existing calls in test files", async () => {
+            givenRepoFiles({ "iOS/DuckDuckGoTests/SettingsTests.swift": settingsSource, "iOS/Customization.swift": intervalCall.join("\n") })
+            givenFiles({ "iOS/Customization.swift": { changes: addedCall(intervalCall) } })
+
+            await pixelPrivacyGate()
+            expect(failMessages()).toHaveLength(2)
+        })
+
+        it("still flags new call sites whose parameters aren't literal keys", async () => {
+            const variableParameters = [`        Pixel.fire(pixel: .appLaunch, withAdditionalParameters: params)`]
+            givenRepoFiles({ "iOS/Old.swift": variableParameters.join("\n"), "iOS/New.swift": variableParameters.join("\n") })
+            givenFiles({ "iOS/New.swift": { changes: addedCall(variableParameters) } })
+
+            await pixelPrivacyGate()
+            expect(failMessages()).toHaveLength(2)
         })
     })
 

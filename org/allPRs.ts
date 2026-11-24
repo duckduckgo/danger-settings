@@ -863,7 +863,52 @@ async function pixelCodeChanges(files: string[]): Promise<PixelCodeChange[]> {
             }
         }
     }
-    return [...withoutMovedLines(typeBodyChanges), ...withoutMovedLines(callSiteChanges)].sort((a, b) => a.order - b.order);
+    const newCallSites = withoutExistingCalls(withoutMovedLines(callSiteChanges), callSiteChanges);
+    return [...withoutMovedLines(typeBodyChanges), ...newCallSites].sort((a, b) => a.order - b.order);
+}
+
+// Drops added calls that repeat a call already in the app (same event and literal parameter keys):
+// firing an existing pixel from one more place doesn't change what it sends.
+function withoutExistingCalls(changes: PixelCodeChange[], allCallSiteChanges: PixelCodeChange[]) {
+    const addedCounts = new Map<string, number>();
+    for (const change of allCallSiteChanges) {
+        if (change.side === "+") addedCounts.set(change.key, (addedCounts.get(change.key) ?? 0) + 1);
+    }
+    return changes.filter(change =>
+        change.side === "-" || !namesEventAndParameterKeys(change.key) ||
+        repoCallCount(change.key) <= (addedCounts.get(change.key) ?? 0)
+    );
+}
+
+function namesEventAndParameterKeys(signature: string) {
+    const [event, keys] = signature.split("|");
+    return event !== "" && keys !== "";
+}
+
+// Calls with this signature in the PR's app sources, including the ones the PR adds.
+function repoCallCount(signature: string) {
+    const event = signature.split("|")[0];
+    return filesMentioning(event).filter(isSwiftSource).reduce((count, file) => {
+        const lines = gitOutput(["show", `HEAD:${file}`]).split("\n").map(line => ({ type: "add", content: ` ${line}` }));
+        for (let i = 0; i < lines.length; i++) {
+            const call = pixelCallStatement(lines, i);
+            if (pixelFireWithParameters.test(call.text) && pixelCallSignature(call.text) === signature) count++;
+        }
+        return count;
+    }, 0);
+}
+
+function filesMentioning(word: string) {
+    return gitOutput(["grep", "-l", "-w", "-e", word, "--", "*.swift"]).split("\n").filter(Boolean);
+}
+
+function gitOutput(args: string[]) {
+    try {
+        return execFileSync("git", args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+    } catch {
+        // git grep exits non-zero when nothing matches.
+        return "";
+    }
 }
 
 // Pixel types declared anywhere in the repo, so extending one in another file counts too.
